@@ -305,7 +305,8 @@ export class RailsMcpServer {
   async start() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('Rails MCP Indexer server started');
+    // Don't log to stderr as it might interfere with MCP communication
+    // console.error('Rails MCP Indexer server started');
   }
 }
 
