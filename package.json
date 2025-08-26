@@ -25,7 +25,9 @@
   "author": "Rails MCP Contributors",
   "type": "module",
   "main": "./dist/server.js",
-  "bin": "./dist/server.js",
+  "bin": {
+    "mcp-server-rails-indexer": "./dist/server.js"
+  },
   "files": [
     "dist/**/*",
     "src/ruby_ast_parser.rb",
