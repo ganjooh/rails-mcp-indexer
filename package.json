@@ -24,31 +24,48 @@
   "license": "MIT",
   "author": "Rails MCP Contributors",
   "type": "module",
+  "main": "./dist/server.js",
+  "bin": {
+    "rails-mcp-indexer": "./dist/server.js"
+  },
   "files": [
-    "src/**/*",
-    "scripts/**/*",
-    "examples/**/*",
-    "requirements.txt",
-    "pyproject.toml",
+    "dist/**/*",
+    "src/ruby_ast_parser.rb",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
   ],
   "scripts": {
-    "setup": "./scripts/setup.sh",
-    "test": "python -m pytest tests/"
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "start": "node dist/server.js",
+    "test": "echo \"Tests coming soon\"",
+    "postinstall": "node -e \"console.log('Rails MCP Indexer installed! Ruby 2.7+ required.')\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "better-sqlite3": "^11.0.0",
+    "glob": "^10.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
   },
   "mcp": {
     "server": {
-      "command": "python",
-      "args": ["src/server.py"],
+      "command": "node",
+      "args": ["dist/server.js"],
       "requirements": {
-        "python": ">=3.8",
+        "node": ">=18.0.0",
         "ruby": ">=2.7"
       }
     }
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0"
   }
 }

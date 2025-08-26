@@ -1,0 +1,56 @@
+# Source files (TypeScript)
+src-ts/
+*.ts
+!*.d.ts
+
+# Python source files (keeping only Ruby parser)
+src/database.py
+src/indexer.py
+src/server.py
+
+# Development files
+tests/
+examples/
+scripts/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Configuration files
+tsconfig.json
+pyproject.toml
+requirements.txt
+.gitignore
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.log
+.npm/
+node_modules/
+
+# Documentation source
+*.md
+!README.md
+!CHANGELOG.md
+
+# Git files
+.git/
+.github/
+
+# Database files
+*.db
+*.sqlite
+.rails-index/
+.index/

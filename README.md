@@ -16,40 +16,44 @@ An intelligent code indexing and retrieval system for Ruby on Rails projects, de
 
 ### Prerequisites
 
-- Python 3.8+
+- Node.js 18+ (for npm package)
 - Ruby 2.7+ (Ruby 3.3+ recommended for Prism support)
 - SQLite3
 - [Claude Desktop](https://claude.ai/download) or MCP-compatible client
 
 ### Installation
 
-#### Option 1: Direct from GitHub (Recommended)
+#### Option 1: NPM Global Install (Recommended)
+
+```bash
+# Install globally via npm
+npm install -g @ganjooh/rails-mcp-indexer
+
+# Or use directly with npx (no install required)
+npx -y @ganjooh/rails-mcp-indexer
+```
+
+#### Option 2: From Source
 
 ```bash
 # Clone the repository
 git clone https://github.com/ganjooh/rails-mcp-indexer
 cd rails-mcp-indexer
 
-# Run setup script
-./scripts/setup.sh
+# Install dependencies and build
+npm install
+npm run build
 ```
 
-#### Option 2: Manual Setup
+#### Option 3: Python Version (Legacy)
 
 ```bash
 # Clone and enter directory
 git clone https://github.com/ganjooh/rails-mcp-indexer
 cd rails-mcp-indexer
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Verify Ruby parser
-ruby src/ruby_ast_parser.rb --version
+# Run Python setup script
+./scripts/setup.sh
 ```
 
 ### Configure with Claude Desktop
@@ -60,16 +64,35 @@ Add to your Claude Desktop configuration file:
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 **Linux**: `~/.config/claude/claude_desktop_config.json`
 
+#### Using NPM Package (Recommended)
+
 ```json
 {
   "mcpServers": {
     "rails-indexer": {
-      "command": "/absolute/path/to/rails-mcp-indexer/venv/bin/python",
-      "args": ["/absolute/path/to/rails-mcp-indexer/src/server.py"],
+      "command": "npx",
+      "args": ["-y", "@ganjooh/rails-mcp-indexer"],
+      "env": {
+        "REPO_PATH": "/path/to/your/rails/project",
+        "DB_PATH": "/path/to/your/rails/project/.rails-index/repo.db"
+      }
+    }
+  }
+}
+```
+
+#### Using Local Installation
+
+```json
+{
+  "mcpServers": {
+    "rails-indexer": {
+      "command": "node",
+      "args": ["/path/to/rails-mcp-indexer/dist/server.js"],
       "env": {
         "REPO_PATH": "/path/to/your/rails/project",
         "DB_PATH": "/path/to/your/rails/project/.rails-index/repo.db",
-        "RUBY_AST_PARSER": "/absolute/path/to/rails-mcp-indexer/src/ruby_ast_parser.rb"
+        "RUBY_AST_PARSER": "/path/to/rails-mcp-indexer/src/ruby_ast_parser.rb"
       }
     }
   }
