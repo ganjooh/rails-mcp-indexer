@@ -24,9 +24,8 @@
   "license": "MIT",
   "author": "Rails MCP Contributors",
   "type": "module",
-  "main": "./dist/server.js",
   "bin": {
-    "mcp-server-rails-indexer": "./dist/server.js"
+    "mcp-server-rails-indexer": "./dist/index.js"
   },
   "files": [
     "dist/**/*",
@@ -40,7 +39,7 @@
     "watch": "tsc --watch",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build",
-    "start": "node dist/server.js",
+    "start": "node dist/index.js",
     "test": "echo \"Tests coming soon\"",
     "postinstall": "node -e \"console.log('Rails MCP Indexer installed! Ruby 2.7+ required.')\""
   },
@@ -59,7 +58,7 @@
     "server": {
       "command": "node",
       "args": [
-        "dist/server.js"
+        "dist/index.js"
       ],
       "requirements": {
         "node": ">=18.0.0",
