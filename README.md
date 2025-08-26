@@ -1,3 +1,5 @@
+[![MSeeP.ai Security Assessment Badge](https://mseep.net/pr/ganjooh-rails-mcp-indexer-badge.png)](https://mseep.ai/app/ganjooh-rails-mcp-indexer)
+
 # Rails MCP Indexer
 
 An intelligent code indexing and retrieval system for Ruby on Rails projects, designed to work seamlessly with Claude Code via the Model Context Protocol (MCP).
