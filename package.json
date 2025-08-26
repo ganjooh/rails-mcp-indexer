@@ -1,6 +1,6 @@
 {
   "name": "@hiteshganjoo/rails-mcp-indexer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Intelligent code indexing and retrieval system for Ruby on Rails projects with MCP integration",
   "keywords": [
     "mcp",
@@ -58,7 +58,9 @@
   "mcp": {
     "server": {
       "command": "node",
-      "args": ["dist/server.js"],
+      "args": [
+        "dist/server.js"
+      ],
       "requirements": {
         "node": ">=18.0.0",
         "ruby": ">=2.7"
