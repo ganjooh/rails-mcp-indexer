@@ -1,0 +1,54 @@
+{
+  "name": "@ganjooh/rails-mcp-indexer",
+  "version": "1.0.0",
+  "description": "Intelligent code indexing and retrieval system for Ruby on Rails projects with MCP integration",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "rails",
+    "ruby",
+    "indexing",
+    "ast",
+    "code-analysis",
+    "claude",
+    "ai-tools"
+  ],
+  "homepage": "https://github.com/ganjooh/rails-mcp-indexer",
+  "bugs": {
+    "url": "https://github.com/ganjooh/rails-mcp-indexer/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ganjooh/rails-mcp-indexer.git"
+  },
+  "license": "MIT",
+  "author": "Rails MCP Contributors",
+  "type": "module",
+  "files": [
+    "src/**/*",
+    "scripts/**/*",
+    "examples/**/*",
+    "requirements.txt",
+    "pyproject.toml",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "setup": "./scripts/setup.sh",
+    "test": "python -m pytest tests/"
+  },
+  "mcp": {
+    "server": {
+      "command": "python",
+      "args": ["src/server.py"],
+      "requirements": {
+        "python": ">=3.8",
+        "ruby": ">=2.7"
+      }
+    }
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

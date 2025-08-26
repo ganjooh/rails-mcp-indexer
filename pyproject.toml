@@ -55,10 +55,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/rails-mcp-indexer"
-Issues = "https://github.com/yourusername/rails-mcp-indexer/issues"
-Documentation = "https://github.com/yourusername/rails-mcp-indexer#readme"
-Repository = "https://github.com/yourusername/rails-mcp-indexer.git"
+Homepage = "https://github.com/ganjooh/rails-mcp-indexer"
+Issues = "https://github.com/ganjooh/rails-mcp-indexer/issues"
+Documentation = "https://github.com/ganjooh/rails-mcp-indexer#readme"
+Repository = "https://github.com/ganjooh/rails-mcp-indexer.git"
 
 [project.scripts]
 rails-mcp-indexer = "src.server:main"
