@@ -27,10 +27,10 @@ An intelligent code indexing and retrieval system for Ruby on Rails projects, de
 
 ```bash
 # Install globally via npm
-npm install -g @ganjooh/rails-mcp-indexer
+npm install -g @hiteshganjoo/rails-mcp-indexer
 
 # Or use directly with npx (no install required)
-npx -y @ganjooh/rails-mcp-indexer
+npx -y @hiteshganjoo/rails-mcp-indexer
 ```
 
 #### Option 2: From Source
@@ -56,13 +56,102 @@ cd rails-mcp-indexer
 ./scripts/setup.sh
 ```
 
-### Configure with Claude Desktop
+## Integration Guides
 
-Add to your Claude Desktop configuration file:
+### Claude Code (CLI) - Recommended
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-**Linux**: `~/.config/claude/claude_desktop_config.json`
+Claude Code provides a simple CLI interface for managing MCP servers.
+
+#### Quick Setup (Global)
+
+```bash
+# Add the Rails indexer globally
+claude mcp add rails-indexer -- npx -y @hiteshganjoo/rails-mcp-indexer
+
+# With environment configuration
+claude mcp add rails-indexer \
+  --env REPO_PATH=/path/to/your/rails/project \
+  --env DB_PATH=/path/to/your/rails/project/.rails-index/repo.db \
+  -- npx -y @hiteshganjoo/rails-mcp-indexer
+```
+
+#### Project-Scoped Setup
+
+```bash
+# Navigate to your Rails project
+cd /path/to/your/rails/project
+
+# Add for this project only
+claude mcp add rails-indexer \
+  --env REPO_PATH=. \
+  --env DB_PATH=./.rails-index/repo.db \
+  -- npx -y @hiteshganjoo/rails-mcp-indexer
+```
+
+#### Managing the Server
+
+```bash
+# List all MCP servers
+claude mcp list
+
+# Get server details
+claude mcp get rails-indexer
+
+# Remove the server
+claude mcp remove rails-indexer
+```
+
+### Cursor IDE Integration
+
+Cursor supports MCP servers through project-specific configuration.
+
+#### Setup Instructions
+
+1. **Create the configuration file** in your Rails project root:
+
+```bash
+mkdir -p .cursor
+touch .cursor/mcp.json
+```
+
+2. **Add the Rails indexer configuration**:
+
+```json
+// .cursor/mcp.json
+{
+  "mcpServers": {
+    "rails-indexer": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@hiteshganjoo/rails-mcp-indexer"],
+      "env": {
+        "REPO_PATH": ".",
+        "DB_PATH": "./.rails-index/repo.db"
+      }
+    }
+  }
+}
+```
+
+3. **Restart Cursor** to load the MCP server
+
+4. **Verify the integration** by using Cursor's AI assistant - it should now have access to Rails indexing tools
+
+#### Alternative: Global Cursor Configuration
+
+For system-wide availability, add to Cursor's global MCP configuration:
+
+**Location**: `~/.cursor/mcp.json` (macOS/Linux) or `%USERPROFILE%\.cursor\mcp.json` (Windows)
+
+### Claude Desktop (Manual Configuration)
+
+For the traditional Claude Desktop app, manually edit the configuration file.
+
+#### Configuration File Locations
+
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux**: `~/.config/claude/claude_desktop_config.json`
 
 #### Using NPM Package (Recommended)
 
@@ -71,7 +160,7 @@ Add to your Claude Desktop configuration file:
   "mcpServers": {
     "rails-indexer": {
       "command": "npx",
-      "args": ["-y", "@ganjooh/rails-mcp-indexer"],
+      "args": ["-y", "@hiteshganjoo/rails-mcp-indexer"],
       "env": {
         "REPO_PATH": "/path/to/your/rails/project",
         "DB_PATH": "/path/to/your/rails/project/.rails-index/repo.db"
@@ -98,6 +187,31 @@ Add to your Claude Desktop configuration file:
   }
 }
 ```
+
+### Configuration Options
+
+#### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|  
+| `REPO_PATH` | Path to your Rails project | `.` (current directory) |
+| `DB_PATH` | SQLite database location | `.rails-index/repo.db` |
+| `RUBY_AST_PARSER` | Path to Ruby parser script | Auto-detected |
+
+#### Ruby Version Requirements
+
+- **Ruby 2.7+**: Requires `parser` gem (`gem install parser`)
+- **Ruby 3.3+**: Built-in Prism support (recommended)
+
+#### Verifying Installation
+
+After setup, the AI assistant should have access to these tools:
+- `search_symbols` - Search for Ruby symbols
+- `get_snippet` - Extract code snippets
+- `call_graph` - Analyze method dependencies
+- `find_similar` - Find similar code patterns
+- `find_tests` - Locate test files
+- `reindex` - Update the code index
 
 ## Available MCP Tools
 
