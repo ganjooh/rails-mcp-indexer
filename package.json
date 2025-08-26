@@ -1,6 +1,6 @@
 {
   "name": "@hiteshganjoo/rails-mcp-indexer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Intelligent code indexing and retrieval system for Ruby on Rails projects with MCP integration",
   "keywords": [
     "mcp",
