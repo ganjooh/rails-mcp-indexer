@@ -19,6 +19,8 @@ import { CodeIndexer } from './indexer.js';
 import { IndexDatabase } from './database.js';
 import * as path from 'path';
 import * as fs from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 // Tool schemas
 const SearchSymbolsSchema = z.object({
@@ -54,6 +56,10 @@ const ReindexSchema = z.object({
   paths: z.array(z.string()).optional().describe('Paths to reindex'),
   full: z.boolean().default(false).describe('Full reindex')
 });
+
+// Get __dirname for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export class RailsMcpServer {
   private server: Server;
@@ -304,7 +310,8 @@ export class RailsMcpServer {
 }
 
 // Main entry point
-if (require.main === module) {
+// Check if this is the main module
+if (import.meta.url === `file://${process.argv[1]}`) {
   const server = new RailsMcpServer();
   server.start().catch((error) => {
     console.error('Failed to start server:', error);
