@@ -19,37 +19,57 @@ An intelligent code indexing and retrieval system for Ruby on Rails projects, de
 - Python 3.8+
 - Ruby 2.7+ (Ruby 3.3+ recommended for Prism support)
 - SQLite3
+- [Claude Desktop](https://claude.ai/download) or MCP-compatible client
 
 ### Installation
 
+#### Option 1: Direct from GitHub (Recommended)
+
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/rails-mcp-indexer
+git clone https://github.com/ganjooh/rails-mcp-indexer
 cd rails-mcp-indexer
 
 # Run setup script
 ./scripts/setup.sh
-
-# Or manual setup
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
 ```
 
-### Configure with Claude Code
+#### Option 2: Manual Setup
 
-Add to your project's `.mcp.json`:
+```bash
+# Clone and enter directory
+git clone https://github.com/ganjooh/rails-mcp-indexer
+cd rails-mcp-indexer
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Verify Ruby parser
+ruby src/ruby_ast_parser.rb --version
+```
+
+### Configure with Claude Desktop
+
+Add to your Claude Desktop configuration file:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+**Linux**: `~/.config/claude/claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "rails-indexer": {
-      "command": "path/to/rails-mcp-indexer/venv/bin/python",
-      "args": ["path/to/rails-mcp-indexer/src/server.py"],
+      "command": "/absolute/path/to/rails-mcp-indexer/venv/bin/python",
+      "args": ["/absolute/path/to/rails-mcp-indexer/src/server.py"],
       "env": {
-        "REPO_PATH": ".",
-        "DB_PATH": ".rails-index/repo.db",
-        "RUBY_AST_PARSER": "path/to/rails-mcp-indexer/src/ruby_ast_parser.rb"
+        "REPO_PATH": "/path/to/your/rails/project",
+        "DB_PATH": "/path/to/your/rails/project/.rails-index/repo.db",
+        "RUBY_AST_PARSER": "/absolute/path/to/rails-mcp-indexer/src/ruby_ast_parser.rb"
       }
     }
   }
@@ -244,5 +264,5 @@ Developed for the Ruby on Rails community. Extracted and enhanced for the Ruby o
 
 ## Support
 
-- Issues: [GitHub Issues](https://github.com/yourusername/rails-mcp-indexer/issues)
-- Discussions: [GitHub Discussions](https://github.com/yourusername/rails-mcp-indexer/discussions)
+- Issues: [GitHub Issues](https://github.com/ganjooh/rails-mcp-indexer/issues)
+- Discussions: [GitHub Discussions](https://github.com/ganjooh/rails-mcp-indexer/discussions)
