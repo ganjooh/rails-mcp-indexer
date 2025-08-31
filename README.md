@@ -33,6 +33,9 @@ An intelligent MCP (Model Context Protocol) server for Ruby on Rails projects th
 - 🚀 **Hybrid Parsing**: Native Ruby AST when available, regex fallback otherwise
 - ⚡ **Fast Search**: SQLite FTS5 full-text search for instant results
 - 🎯 **Context Efficient**: Minimizes token usage by returning only relevant code
+- 🗄️ **Schema Awareness**: Parses db/schema.rb to understand database structure
+- 🔗 **Association Suggestions**: Automatically suggests Rails associations from foreign keys
+- ✅ **Validation Generation**: Suggests validations based on database constraints
 
 ## Quick Start
 
@@ -243,6 +246,72 @@ Reindex the codebase.
   "full": false             // Full reindex
 }
 ```
+
+### 🗄️ db_tables
+
+List all database tables from schema.rb.
+
+```typescript
+// No parameters required
+```
+
+### 📊 db_table
+
+Get detailed information about a database table including columns, indexes, and constraints.
+
+```typescript
+{
+  "table_name": "users"
+}
+```
+
+### 🔗 db_table_relations
+
+Get foreign key relationships for a table.
+
+```typescript
+{
+  "table_name": "orders"
+}
+```
+
+### 💡 db_suggest_associations
+
+Suggest Rails associations and validations based on database schema.
+
+```typescript
+{
+  "table_name": "posts"
+}
+```
+
+Returns:
+- Rails association declarations (belongs_to, has_many, has_one)
+- Validation suggestions based on constraints
+- Model name inference
+
+## Database Schema Support
+
+The indexer automatically parses `db/schema.rb` to provide database-aware features:
+
+### Automatic Schema Indexing
+- Parses `db/schema.rb` during reindex
+- Extracts tables, columns, indexes, and foreign keys
+- Stores schema metadata in SQLite for fast queries
+
+### Rails Association Generation
+Based on foreign keys in your schema, the indexer suggests:
+- `belongs_to` associations for foreign key columns
+- `has_many` or `has_one` based on unique constraints
+- Proper `dependent` options from ON DELETE rules
+- `inverse_of` relationships
+
+### Validation Suggestions
+Automatically suggests validations based on:
+- NOT NULL constraints → `presence: true`
+- Unique indexes → `uniqueness: true`
+- String column limits → `length: { maximum: X }`
+- Numeric columns → `numericality` validations
 
 ## Rails File Type Recognition
 

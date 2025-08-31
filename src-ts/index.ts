@@ -57,6 +57,10 @@ const ReindexSchema = z.object({
   full: z.boolean().default(false).describe('Full reindex')
 });
 
+const DbTableSchema = z.object({
+  table_name: z.string().describe('Name of the table')
+});
+
 // Get __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -97,7 +101,7 @@ export class RailsMcpServer {
     this.server = new Server(
       {
         name: 'rails-mcp-indexer',
-        version: '2.1.0'
+        version: '2.2.0'
       },
       {
         capabilities: {
@@ -201,6 +205,47 @@ export class RailsMcpServer {
                 full: { type: 'boolean', description: 'Full reindex', default: false }
               }
             }
+          },
+          {
+            name: 'db_tables',
+            description: 'List all database tables from schema.rb',
+            inputSchema: {
+              type: 'object',
+              properties: {}
+            }
+          },
+          {
+            name: 'db_table',
+            description: 'Get detailed information about a database table',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                table_name: { type: 'string', description: 'Name of the table' }
+              },
+              required: ['table_name']
+            }
+          },
+          {
+            name: 'db_table_relations',
+            description: 'Get foreign key relationships for a table',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                table_name: { type: 'string', description: 'Name of the table' }
+              },
+              required: ['table_name']
+            }
+          },
+          {
+            name: 'db_suggest_associations',
+            description: 'Suggest Rails associations and validations based on database schema',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                table_name: { type: 'string', description: 'Name of the table' }
+              },
+              required: ['table_name']
+            }
           }
         ] as Tool[]
       };
@@ -291,6 +336,49 @@ export class RailsMcpServer {
               content: [{
                 type: 'text',
                 text: JSON.stringify(result, null, 2)
+              } as TextContent]
+            };
+          }
+
+          case 'db_tables': {
+            const tables = await this.indexer.getTables();
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify(tables, null, 2)
+              } as TextContent]
+            };
+          }
+
+          case 'db_table': {
+            const params = DbTableSchema.parse(args);
+            const table = await this.indexer.getTable(params.table_name);
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify(table, null, 2)
+              } as TextContent]
+            };
+          }
+
+          case 'db_table_relations': {
+            const params = DbTableSchema.parse(args);
+            const relations = await this.indexer.getTableRelations(params.table_name);
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify(relations, null, 2)
+              } as TextContent]
+            };
+          }
+
+          case 'db_suggest_associations': {
+            const params = DbTableSchema.parse(args);
+            const suggestions = await this.indexer.suggestAssociations(params.table_name);
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify(suggestions, null, 2)
               } as TextContent]
             };
           }

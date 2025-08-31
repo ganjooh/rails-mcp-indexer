@@ -1,7 +1,7 @@
 {
   "name": "@hiteshganjoo/rails-mcp-indexer",
-  "version": "2.1.1",
-  "description": "Native Ruby AST parser with MCP integration for Rails projects - supports both native Ruby parsing and regex fallback",
+  "version": "2.2.0",
+  "description": "Rails MCP server with database schema awareness - parses both Ruby AST and db/schema.rb for complete Rails intelligence",
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -11,7 +11,11 @@
     "ast",
     "code-analysis",
     "claude",
-    "ai-tools"
+    "ai-tools",
+    "database-schema",
+    "activerecord",
+    "associations",
+    "validations"
   ],
   "homepage": "https://github.com/ganjooh/rails-mcp-indexer",
   "bugs": {

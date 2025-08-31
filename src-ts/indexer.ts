@@ -10,6 +10,8 @@ import { glob } from 'glob';
 import { IndexDatabase } from './database.js';
 import { RubyParser, RubyParseResult } from './ruby-parser.js';
 import { NativeRubyParser, NativeParseResult } from './ruby-parser-native.js';
+import { SchemaParser } from './schema-parser.js';
+import { RailsAssociationMapper } from './rails-association-mapper.js';
 
 export interface SearchResult {
   file_path: string;
@@ -35,6 +37,8 @@ export class CodeIndexer {
   private nativeParser: NativeRubyParser;
   private useNativeParser: boolean;
   private railsPatterns: Map<string, RegExp>;
+  private schemaParser: SchemaParser;
+  private associationMapper: RailsAssociationMapper;
 
   constructor(repoPath: string, db: IndexDatabase, rubyParserPath: string) {
     this.repoPath = path.resolve(repoPath);
@@ -43,6 +47,10 @@ export class CodeIndexer {
     // Initialize both parsers
     this.regexParser = new RubyParser(rubyParserPath);
     this.nativeParser = new NativeRubyParser();
+    
+    // Initialize schema parser and association mapper
+    this.schemaParser = new SchemaParser();
+    this.associationMapper = new RailsAssociationMapper();
     
     // Prefer native parser if available
     this.useNativeParser = this.nativeParser.isAvailable();
@@ -106,6 +114,14 @@ export class CodeIndexer {
         console.error(`Failed to index ${filePath}:`, error);
         filesFailed++;
       }
+    }
+
+    // Index schema.rb if it exists
+    try {
+      await this.indexSchema();
+    } catch (error) {
+      console.warn('[CodeIndexer] Failed to index schema.rb:', error);
+      // Don't fail the whole reindex if schema parsing fails
     }
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -223,6 +239,50 @@ export class CodeIndexer {
       }
     }
     return 'ruby';
+  }
+
+  private async indexSchema(): Promise<void> {
+    const schemaPath = path.join(this.repoPath, 'db', 'schema.rb');
+    
+    if (!fs.existsSync(schemaPath)) {
+      console.log('[CodeIndexer] No schema.rb found, skipping schema indexing');
+      return;
+    }
+
+    console.log('[CodeIndexer] Indexing database schema from schema.rb');
+    
+    // Parse the schema file
+    const schemaData = await this.schemaParser.parseFile(schemaPath);
+    
+    // Clear existing schema data
+    this.db.clearSchema();
+    
+    // Store tables and their metadata
+    for (const table of schemaData.tables) {
+      const tableId = this.db.upsertSchemaTable(table.name, table.primary_key);
+      
+      // Store columns
+      for (const column of table.columns) {
+        this.db.insertSchemaColumn(tableId, column);
+      }
+      
+      // Store indexes
+      for (const index of table.indexes) {
+        this.db.insertSchemaIndex(tableId, index);
+      }
+    }
+    
+    // Store foreign keys
+    for (const fk of schemaData.foreign_keys) {
+      this.db.insertSchemaForeignKey(fk);
+    }
+    
+    // Store schema version as metadata
+    if (schemaData.version) {
+      this.db.setMetadata('schema_version', schemaData.version);
+    }
+    
+    console.log(`[CodeIndexer] Indexed ${schemaData.tables.length} tables from schema.rb`);
   }
 
   async searchSymbols(query: string, limit: number = 10, fileTypes?: string[]): Promise<SearchResult[]> {
@@ -357,5 +417,66 @@ export class CodeIndexer {
       duration: `${duration}s`,
       stats
     };
+  }
+
+  // Schema-related methods
+  async getTables(): Promise<any[]> {
+    return this.db.getAllSchemaTables();
+  }
+
+  async getTable(tableName: string): Promise<any> {
+    return this.db.getSchemaTable(tableName);
+  }
+
+  async getTableRelations(tableName: string): Promise<any> {
+    const foreignKeys = this.db.getSchemaForeignKeys(tableName);
+    return {
+      table: tableName,
+      foreign_keys: foreignKeys,
+      incoming: foreignKeys.filter(fk => fk.to_table === tableName),
+      outgoing: foreignKeys.filter(fk => fk.from_table === tableName)
+    };
+  }
+
+  async suggestAssociations(tableName: string): Promise<any> {
+    const table = this.db.getSchemaTable(tableName);
+    if (!table) {
+      throw new Error(`Table ${tableName} not found in schema`);
+    }
+    
+    const allTables = this.db.getAllSchemaTables().map(t => t.name);
+    const foreignKeys = this.db.getSchemaForeignKeys();
+    
+    const associations = this.associationMapper.generateAssociations(
+      tableName,
+      foreignKeys,
+      allTables,
+      table.indexes
+    );
+    
+    const validations = this.associationMapper.suggestValidations(
+      table.columns,
+      table.indexes
+    );
+    
+    return {
+      table: tableName,
+      model: this.tableToModel(tableName),
+      associations,
+      validations
+    };
+  }
+
+  private tableToModel(tableName: string): string {
+    // Convert table name to model name (users -> User)
+    const singular = tableName.endsWith('ies') 
+      ? tableName.slice(0, -3) + 'y'
+      : tableName.endsWith('s') 
+      ? tableName.slice(0, -1)
+      : tableName;
+    
+    return singular.split('_')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join('');
   }
 }

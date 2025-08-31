@@ -5,6 +5,24 @@ All notable changes to Rails MCP Indexer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2025-08-31
+
+### Added
+- **Database Schema Awareness**: Parses `db/schema.rb` to understand database structure
+- **New MCP Tools**:
+  - `db_tables` - List all database tables
+  - `db_table` - Get detailed table information (columns, indexes, constraints)
+  - `db_table_relations` - Find foreign key relationships
+  - `db_suggest_associations` - Generate Rails associations from foreign keys
+- **Rails Association Mapping**: Automatically suggests `belongs_to`, `has_many`, and `has_one` based on foreign keys
+- **Validation Generation**: Suggests Rails validations based on database constraints
+- **Schema Parser**: Extracts tables, columns, indexes, and foreign keys from schema.rb
+- **SQLite Schema Storage**: Stores schema metadata for fast queries
+
+### Changed
+- Reindex now automatically parses schema.rb if present
+- Enhanced database with schema-specific tables
+
 ## [1.0.6] - 2025-08-26
 
 ### Fixed

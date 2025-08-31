@@ -135,6 +135,64 @@ export class IndexDatabase {
       CREATE INDEX IF NOT EXISTS idx_calls_caller ON calls(caller_symbol_id);
       CREATE INDEX IF NOT EXISTS idx_calls_callee ON calls(callee_symbol);
     `);
+
+    // Schema tables for db/schema.rb metadata
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS schema_tables (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL,
+        primary_key TEXT,
+        last_indexed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS schema_columns (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        column_type TEXT NOT NULL,
+        nullable BOOLEAN DEFAULT TRUE,
+        default_value TEXT,
+        column_limit INTEGER,
+        precision INTEGER,
+        scale INTEGER,
+        FOREIGN KEY (table_id) REFERENCES schema_tables(id) ON DELETE CASCADE,
+        UNIQUE(table_id, name)
+      )
+    `);
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS schema_indexes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_id INTEGER NOT NULL,
+        name TEXT,
+        columns TEXT NOT NULL, -- JSON array
+        unique_index BOOLEAN DEFAULT FALSE,
+        where_clause TEXT,
+        FOREIGN KEY (table_id) REFERENCES schema_tables(id) ON DELETE CASCADE
+      )
+    `);
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS schema_foreign_keys (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_table TEXT NOT NULL,
+        from_column TEXT NOT NULL,
+        to_table TEXT NOT NULL,
+        to_column TEXT NOT NULL,
+        on_delete TEXT,
+        on_update TEXT
+      )
+    `);
+
+    // Create indices for schema tables
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_schema_columns_table_id ON schema_columns(table_id);
+      CREATE INDEX IF NOT EXISTS idx_schema_indexes_table_id ON schema_indexes(table_id);
+      CREATE INDEX IF NOT EXISTS idx_schema_fk_from ON schema_foreign_keys(from_table);
+      CREATE INDEX IF NOT EXISTS idx_schema_fk_to ON schema_foreign_keys(to_table);
+    `);
   }
 
   // File operations
@@ -360,5 +418,136 @@ export class IndexDatabase {
     if (fileCount.count === 0) return true;
     
     return false;
+  }
+
+  // Schema operations
+  clearSchema() {
+    this.db.exec(`
+      DELETE FROM schema_foreign_keys;
+      DELETE FROM schema_indexes;
+      DELETE FROM schema_columns;
+      DELETE FROM schema_tables;
+    `);
+  }
+
+  upsertSchemaTable(name: string, primaryKey?: string): number {
+    const stmt = this.db.prepare(`
+      INSERT INTO schema_tables (name, primary_key)
+      VALUES (?, ?)
+      ON CONFLICT(name) DO UPDATE SET
+        primary_key = excluded.primary_key,
+        last_indexed = CURRENT_TIMESTAMP
+      RETURNING id
+    `);
+    const result = stmt.get(name, primaryKey) as { id: number };
+    return result.id;
+  }
+
+  insertSchemaColumn(tableId: number, column: any) {
+    const stmt = this.db.prepare(`
+      INSERT INTO schema_columns (
+        table_id, name, column_type, nullable, 
+        default_value, column_limit, precision, scale
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(table_id, name) DO UPDATE SET
+        column_type = excluded.column_type,
+        nullable = excluded.nullable,
+        default_value = excluded.default_value,
+        column_limit = excluded.column_limit,
+        precision = excluded.precision,
+        scale = excluded.scale
+    `);
+    
+    stmt.run(
+      tableId,
+      column.name,
+      column.type,
+      column.nullable ? 1 : 0,
+      column.default || null,
+      column.limit || null,
+      column.precision || null,
+      column.scale || null
+    );
+  }
+
+  insertSchemaIndex(tableId: number, index: any) {
+    const stmt = this.db.prepare(`
+      INSERT INTO schema_indexes (
+        table_id, name, columns, unique_index, where_clause
+      )
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    
+    stmt.run(
+      tableId,
+      index.name,
+      JSON.stringify(index.columns),
+      index.unique ? 1 : 0,
+      index.where || null
+    );
+  }
+
+  insertSchemaForeignKey(fk: any) {
+    const stmt = this.db.prepare(`
+      INSERT INTO schema_foreign_keys (
+        from_table, from_column, to_table, to_column, on_delete, on_update
+      )
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    
+    stmt.run(
+      fk.from_table,
+      fk.from_column,
+      fk.to_table,
+      fk.to_column,
+      fk.on_delete || null,
+      fk.on_update || null
+    );
+  }
+
+  getSchemaTable(tableName: string): any {
+    const table = this.db.prepare(`
+      SELECT * FROM schema_tables WHERE name = ?
+    `).get(tableName) as any;
+    
+    if (!table) return null;
+    
+    const columns = this.db.prepare(`
+      SELECT * FROM schema_columns WHERE table_id = ?
+    `).all(table.id);
+    
+    const indexes = this.db.prepare(`
+      SELECT * FROM schema_indexes WHERE table_id = ?
+    `).all(table.id);
+    
+    // Parse JSON columns in indexes
+    indexes.forEach((idx: any) => {
+      idx.columns = JSON.parse(idx.columns);
+    });
+    
+    return {
+      ...table,
+      columns,
+      indexes
+    };
+  }
+
+  getAllSchemaTables(): any[] {
+    return this.db.prepare(`
+      SELECT name, primary_key FROM schema_tables ORDER BY name
+    `).all();
+  }
+
+  getSchemaForeignKeys(tableName?: string): any[] {
+    if (tableName) {
+      return this.db.prepare(`
+        SELECT * FROM schema_foreign_keys 
+        WHERE from_table = ? OR to_table = ?
+      `).all(tableName, tableName);
+    }
+    return this.db.prepare(`
+      SELECT * FROM schema_foreign_keys
+    `).all();
   }
 }
