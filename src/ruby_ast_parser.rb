@@ -8,7 +8,8 @@ require 'rubygems'
 
 # Check Ruby version and use appropriate parser
 ruby_version = Gem::Version.new(RUBY_VERSION)
-use_prism = ruby_version >= Gem::Version.new('3.3.0')
+# Temporarily force parser gem usage due to Prism compatibility issues
+use_prism = false # ruby_version >= Gem::Version.new('3.3.0')
 
 if use_prism
   require 'prism'

@@ -67,4 +67,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Credits
 - Developed for the Ruby on Rails community
-- Extracted and enhanced for the Ruby on Rails community
