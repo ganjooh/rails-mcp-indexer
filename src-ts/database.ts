@@ -11,7 +11,6 @@ export interface FileRecord {
   path: string;
   hash: string;
   last_indexed?: string;
-  indexed_at?: string;
   file_type: string;
   line_count: number;
 }
@@ -21,7 +20,6 @@ export interface SymbolRecord {
   file_id: number;
   name: string;
   type: string;
-  parent?: string | null;
   parent_symbol?: string | null;
   start_line: number;
   end_line: number;

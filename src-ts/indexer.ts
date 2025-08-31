@@ -174,7 +174,7 @@ export class CodeIndexer {
       hash,
       file_type: fileType,
       line_count: parseResult.line_count || 0,
-      indexed_at: new Date().toISOString()
+      last_indexed: new Date().toISOString()
     });
 
     // Index symbols
@@ -184,10 +184,12 @@ export class CodeIndexer {
           file_id: fileId,
           name: symbol.name,
           type: symbol.type,
-          parent: symbol.parent || null,
+          parent_symbol: ('parent_symbol' in symbol ? symbol.parent_symbol : symbol.parent) || null,
           start_line: symbol.start_line,
           end_line: symbol.end_line,
+          signature: 'signature' in symbol ? symbol.signature : null,
           visibility: symbol.visibility || 'public',
+          documentation: 'documentation' in symbol ? symbol.documentation : null,
           references: JSON.stringify(symbol.references || []),
           metadata: JSON.stringify(symbol.metadata || [])
         });
@@ -201,10 +203,12 @@ export class CodeIndexer {
           file_id: fileId,
           name: assoc.name,
           type: 'association',
-          parent: null,
+          parent_symbol: null,
           start_line: 0,
           end_line: 0,
+          signature: null,
           visibility: 'public',
+          documentation: null,
           references: JSON.stringify([]),
           metadata: JSON.stringify(assoc)
         });
