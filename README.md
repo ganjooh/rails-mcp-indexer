@@ -1,6 +1,28 @@
 # Rails MCP Indexer
 
-An intelligent MCP (Model Context Protocol) server for Ruby on Rails projects that provides advanced code indexing, search, and analysis capabilities without requiring Ruby installation.
+An intelligent MCP (Model Context Protocol) server for Ruby on Rails projects that provides advanced code indexing, search, and analysis capabilities. Features native Ruby AST parsing with automatic fallback to regex-based parsing when Ruby is not available.
+
+## Why Use Rails MCP Indexer?
+
+### Advantages Over Vanilla Claude Code / Cursor
+
+| Feature | Vanilla Claude Code / Cursor | Rails MCP Indexer |
+|---------|------------------------------|-------------------|
+| **Rails DSL Understanding** | Basic text search | Full understanding of associations, validations, callbacks, scopes |
+| **Symbol Search** | File-by-file scanning | Indexed database with instant FTS5 search |
+| **Call Graph Analysis** | Not available | Trace method dependencies and call relationships |
+| **Test Discovery** | Manual search | Automatic test file detection |
+| **Performance** | Searches entire codebase each time | Pre-indexed SQLite database with sub-second queries |
+| **Memory Usage** | Loads files into context | Efficient database queries, minimal context usage |
+| **Rails Patterns** | Generic code understanding | Rails-specific: models, controllers, services, jobs, etc. |
+| **AST Parsing** | Not available | Native Ruby AST parsing (when Ruby installed) |
+
+### Key Benefits
+
+1. **Context Efficiency**: Instead of loading entire files into Claude's context window, you can query specific symbols and relationships
+2. **Rails Intelligence**: Understands Rails DSL - knows that `has_many :posts` creates methods like `posts`, `posts=`, `posts<<`, etc.
+3. **Speed**: Pre-indexed database means instant searches vs scanning files every time
+4. **Accurate Symbol Detection**: Native Ruby AST parsing (when available) ensures 100% accurate symbol detection
 
 ## Features
 
@@ -8,24 +30,40 @@ An intelligent MCP (Model Context Protocol) server for Ruby on Rails projects th
 - 📊 **Call Graph Analysis**: Trace method calls and dependencies
 - 🧪 **Test Discovery**: Automatically find related test files
 - 📁 **Rails-aware**: Understands Rails conventions and patterns
-- 🚀 **No Ruby Required**: Works without Ruby installation using regex-based parsing
+- 🚀 **Hybrid Parsing**: Native Ruby AST when available, regex fallback otherwise
 - ⚡ **Fast Search**: SQLite FTS5 full-text search for instant results
+- 🎯 **Context Efficient**: Minimizes token usage by returning only relevant code
 
-## Installation
+## Quick Start
 
-### Via NPM (Recommended)
+### 1. Install the Package
 
 ```bash
+# Global installation (recommended for Claude Code)
 npm install -g @hiteshganjoo/rails-mcp-indexer
+
+# Or use directly with npx (no installation needed)
+npx @hiteshganjoo/rails-mcp-indexer
 ```
 
-### Via Claude Code
+### 2. Setup in Your Rails Project
+
+#### Option A: Claude Code (Recommended)
 
 ```bash
-claude mcp add rails-indexer "npx @hiteshganjoo/rails-mcp-indexer"
+# Navigate to your Rails project
+cd /path/to/your/rails/project
+
+# Add the MCP server with the current directory as the repo path
+claude mcp add rails-indexer "npx @hiteshganjoo/rails-mcp-indexer" .
+
+# Or if installed globally
+claude mcp add rails-indexer mcp-server-rails-indexer .
+
+# Restart Claude Code to activate
 ```
 
-### Via Claude Desktop
+#### Option B: Claude Desktop
 
 Add to your `claude_desktop_config.json`:
 
@@ -34,10 +72,24 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "rails-indexer": {
       "command": "npx",
+      "args": ["@hiteshganjoo/rails-mcp-indexer", "/path/to/your/rails/project"]
+    }
+  }
+}
+```
+
+#### Option C: Cursor IDE
+
+Add to your `.cursor/mcp.json` in your Rails project:
+
+```json
+{
+  "mcpServers": {
+    "rails-indexer": {
+      "command": "npx",
       "args": ["@hiteshganjoo/rails-mcp-indexer"],
       "env": {
-        "REPO_PATH": "/path/to/your/rails/project",
-        "DB_PATH": "/path/to/index.db"
+        "REPO_PATH": "."
       }
     }
   }
@@ -46,11 +98,45 @@ Add to your `claude_desktop_config.json`:
 
 ## Configuration
 
+### Command Line Arguments
+
+The server accepts a single argument for the repository path:
+
+```bash
+# Specify the Rails project path as an argument
+npx @hiteshganjoo/rails-mcp-indexer /path/to/rails/project
+
+# Or use current directory
+npx @hiteshganjoo/rails-mcp-indexer .
+```
+
 ### Environment Variables
 
-- `REPO_PATH`: Path to your Rails project (default: current directory)
-- `DB_PATH`: Path to SQLite database (default: `.rails-index/repo.db`)
-- `RUBY_AST_PARSER`: Path to Ruby AST parser script (default: built-in)
+You can also configure the server using environment variables:
+
+| Variable | Description | Default | Example |
+|----------|-------------|---------|---------|
+| `REPO_PATH` | Path to your Rails project | Current directory (`.`) | `/Users/me/myapp` |
+| `DB_PATH` | SQLite database location | `.rails-index/repo.db` | `/tmp/rails.db` |
+| `RUBY_AST_PARSER` | Custom Ruby parser path | Built-in parser | `/opt/parser.rb` |
+
+```bash
+# Example with environment variables
+REPO_PATH=/path/to/rails/app DB_PATH=/tmp/index.db npx @hiteshganjoo/rails-mcp-indexer
+```
+
+### Project-Specific Configuration
+
+Create a `.mcp.json` file in your Rails project root:
+
+```json
+{
+  "rails-indexer": {
+    "repoPath": ".",
+    "dbPath": ".rails-index/repo.db"
+  }
+}
+```
 
 ## Available Tools
 
@@ -143,9 +229,25 @@ The indexer automatically recognizes these Rails patterns:
 
 ## How It Works
 
-1. **Parsing**: Uses regex-based Ruby parser to extract symbols and structure
+1. **Parsing**: Hybrid approach - native Ruby AST parser when Ruby is available, regex fallback otherwise
 2. **Indexing**: Stores parsed data in SQLite with FTS5 for fast search
 3. **MCP Protocol**: Exposes tools via Model Context Protocol for AI assistants
+
+### Ruby Support (Optional)
+
+The indexer works **without Ruby installation**, but having Ruby installed provides more accurate parsing:
+
+| Ruby Version | Support Level | Features |
+|--------------|---------------|----------|
+| **No Ruby** | ✅ Full Support | Regex-based parser, all features work |
+| **Ruby 2.7+** | ✅ Enhanced | Native AST parsing via `parser` gem |
+| **Ruby 3.3+** | ✅ Enhanced | Native AST parsing via `prism` (built-in) |
+
+When Ruby is detected during installation, the package automatically:
+1. Detects your Ruby version
+2. Installs appropriate parser gems
+3. Uses native AST parsing for 100% accurate symbol detection
+4. Falls back to regex parsing if native parsing fails
 
 ## Architecture
 
@@ -206,33 +308,92 @@ npm test
 npx @modelcontextprotocol/inspector npm start
 ```
 
-## Examples
+## Usage Examples
 
-### Using with Claude Code
+### Real-World Advantages in Claude Code
 
-```bash
-# Add the server
-claude mcp add rails-indexer "npx @hiteshganjoo/rails-mcp-indexer"
-
-# Now you can ask Claude:
-# "Find all User model methods"
-# "Show me the authentication logic"
-# "Find tests for the User model"
+#### Without Rails MCP Indexer (Vanilla Claude Code)
+```
+User: "Find all authentication methods in my Rails app"
+Claude: *Searches through multiple files, uses significant context*
+"Let me search through your codebase... 
+Reading app/models/user.rb...
+Reading app/controllers/application_controller.rb...
+Reading app/controllers/sessions_controller.rb..."
+[Uses 5000+ tokens just to find methods]
 ```
 
-### Direct Usage
+#### With Rails MCP Indexer
+```
+User: "Find all authentication methods in my Rails app"
+Claude: *Instantly queries the index*
+Found 5 authentication-related methods:
+- User.authenticate (app/models/user.rb:37)
+- SessionsController#create (app/controllers/sessions_controller.rb:8)
+- ApplicationController#authenticate_user! (app/controllers/application_controller.rb:15)
+[Uses only 200 tokens with precise results]
+```
+
+### Common Use Cases
+
+#### 1. Finding Symbol Definitions
+```bash
+# Ask Claude Code:
+"Where is the User.authenticate method defined?"
+# Rails MCP Indexer instantly returns: app/models/user.rb:37-41
+
+# Vanilla Claude Code would need to:
+# - Search through all model files
+# - Parse each file to find the method
+# - Use significant context tokens
+```
+
+#### 2. Understanding Model Relationships
+```bash
+# Ask Claude Code:
+"What associations does the User model have?"
+# Rails MCP Indexer knows:
+# - has_many :posts
+# - has_many :comments, through: :posts
+# - has_one :profile
+# - belongs_to :organization
+
+# Vanilla Claude Code would need to load and parse the entire User model
+```
+
+#### 3. Finding Related Tests
+```bash
+# Ask Claude Code:
+"Find tests for the User model"
+# Rails MCP Indexer instantly returns:
+# - spec/models/user_spec.rb
+# - spec/requests/users_spec.rb
+# - test/models/user_test.rb
+
+# Vanilla Claude Code would manually search through spec/ and test/ directories
+```
+
+### Direct Tool Usage
 
 ```javascript
-// Example: Search for symbols
+// Example: Search for authentication-related symbols
 const result = await mcpClient.callTool('search_symbols', {
   query: 'authenticate',
-  k: 5
+  k: 5,
+  file_types: ['model', 'controller']
 });
 
-// Example: Get call graph
+// Example: Get call graph for a method
 const graph = await mcpClient.callTool('call_graph', {
   symbol: 'User.authenticate',
-  direction: 'both'
+  direction: 'both',
+  depth: 2
+});
+
+// Example: Find similar validation patterns
+const similar = await mcpClient.callTool('find_similar', {
+  code_snippet: 'validates :email, presence: true, uniqueness: true',
+  k: 5
 });
 ```
 
