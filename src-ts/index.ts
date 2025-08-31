@@ -65,12 +65,23 @@ export class RailsMcpServer {
   private server: Server;
   private indexer: CodeIndexer;
   private db: IndexDatabase;
+  private repoPath: string;
+  private autoIndexOnStartup: boolean;
 
   constructor() {
-    // Get configuration from environment variables
-    const repoPath = process.env.REPO_PATH || '.';
-    const dbPath = process.env.DB_PATH || '.rails-index/repo.db';
+    // Get configuration from environment variables or command line args
+    this.repoPath = process.argv[2] || process.env.REPO_PATH || '.';
+    
+    // Resolve to absolute path
+    this.repoPath = path.resolve(this.repoPath);
+    
+    // Use project-specific database path by default
+    const defaultDbPath = path.join(this.repoPath, '.rails-index', 'repo.db');
+    const dbPath = process.env.DB_PATH || defaultDbPath;
     const rubyParser = process.env.RUBY_AST_PARSER || path.join(__dirname, '..', 'src', 'ruby_ast_parser.rb');
+    
+    // Configuration options
+    this.autoIndexOnStartup = process.env.AUTO_INDEX !== 'false'; // Default to true
 
     // Ensure database directory exists
     const dbDir = path.dirname(dbPath);
@@ -80,13 +91,13 @@ export class RailsMcpServer {
 
     // Initialize components
     this.db = new IndexDatabase(dbPath);
-    this.indexer = new CodeIndexer(repoPath, this.db, rubyParser);
+    this.indexer = new CodeIndexer(this.repoPath, this.db, rubyParser);
 
     // Initialize MCP server
     this.server = new Server(
       {
         name: 'rails-mcp-indexer',
-        version: '1.0.0'
+        version: '2.1.0'
       },
       {
         capabilities: {
@@ -303,10 +314,27 @@ export class RailsMcpServer {
   }
 
   async start() {
+    // Check if auto-indexing is needed
+    if (this.autoIndexOnStartup) {
+      try {
+        if (this.db.needsReindex(this.repoPath)) {
+          console.error(`[Rails MCP Indexer] Auto-indexing ${this.repoPath}...`);
+          const result = await this.indexer.reindex([], false);
+          console.error(`[Rails MCP Indexer] Indexed ${result.filesIndexed} files in ${result.duration}`);
+        } else {
+          const metadata = this.db.getAllMetadata();
+          const lastIndexed = metadata.last_indexed ? new Date(metadata.last_indexed).toLocaleString() : 'never';
+          console.error(`[Rails MCP Indexer] Using existing index (last updated: ${lastIndexed})`);
+        }
+      } catch (error) {
+        console.error('[Rails MCP Indexer] Auto-index failed:', error);
+        // Continue anyway - user can manually reindex
+      }
+    }
+
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    // Don't log to stderr as it might interfere with MCP communication
-    // console.error('Rails MCP Indexer server started');
+    console.error(`[Rails MCP Indexer] Server started for ${this.repoPath}`);
   }
 }
 

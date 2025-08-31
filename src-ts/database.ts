@@ -50,6 +50,15 @@ export class IndexDatabase {
   }
 
   private initSchema() {
+    // Metadata table for tracking indexer state
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS metadata (
+        key TEXT PRIMARY KEY,
+        value TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Files table
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS files (
@@ -306,5 +315,52 @@ export class IndexDatabase {
       calls: callCount.count,
       symbolTypes: typeStats
     };
+  }
+
+  // Metadata operations
+  setMetadata(key: string, value: string): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO metadata (key, value, updated_at) 
+      VALUES (?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET 
+        value = excluded.value,
+        updated_at = CURRENT_TIMESTAMP
+    `);
+    stmt.run(key, value);
+  }
+
+  getMetadata(key: string): string | null {
+    const stmt = this.db.prepare('SELECT value FROM metadata WHERE key = ?');
+    const result = stmt.get(key) as { value: string } | undefined;
+    return result?.value || null;
+  }
+
+  getAllMetadata(): Record<string, string> {
+    const stmt = this.db.prepare('SELECT key, value FROM metadata');
+    const rows = stmt.all() as Array<{ key: string; value: string }>;
+    const metadata: Record<string, string> = {};
+    for (const row of rows) {
+      metadata[row.key] = row.value;
+    }
+    return metadata;
+  }
+
+  // Check if database needs reindexing
+  needsReindex(repoPath: string): boolean {
+    const storedPath = this.getMetadata('repo_path');
+    const lastIndexed = this.getMetadata('last_indexed');
+    
+    // Need reindex if:
+    // 1. No stored path (new database)
+    // 2. Different repo path
+    // 3. No files in database
+    // 4. Never indexed
+    if (!storedPath || storedPath !== repoPath) return true;
+    if (!lastIndexed) return true;
+    
+    const fileCount = this.db.prepare('SELECT COUNT(*) as count FROM files').get() as { count: number };
+    if (fileCount.count === 0) return true;
+    
+    return false;
   }
 }

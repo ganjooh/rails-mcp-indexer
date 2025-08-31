@@ -1,6 +1,6 @@
 {
   "name": "@hiteshganjoo/rails-mcp-indexer",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Native Ruby AST parser with MCP integration for Rails projects - supports both native Ruby parsing and regex fallback",
   "keywords": [
     "mcp",

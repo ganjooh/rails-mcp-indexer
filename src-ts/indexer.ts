@@ -78,6 +78,10 @@ export class CodeIndexer {
       this.db.clearAll();
     }
 
+    // Store metadata about this indexing operation
+    this.db.setMetadata('repo_path', this.repoPath);
+    this.db.setMetadata('index_started_at', new Date().toISOString());
+
     // Find all Ruby files
     const patterns = paths?.length ? 
       paths.map(p => path.join(this.repoPath, p, '**/*.rb')) :
@@ -86,7 +90,7 @@ export class CodeIndexer {
     const files: string[] = [];
     for (const pattern of patterns) {
       const matches = await glob(pattern, { 
-        ignore: ['**/node_modules/**', '**/vendor/**', '**/.git/**']
+        ignore: ['**/node_modules/**', '**/vendor/**', '**/.git/**', '**/.rails-index/**']
       });
       files.push(...matches);
     }
@@ -106,6 +110,11 @@ export class CodeIndexer {
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     
+    // Update metadata after successful indexing
+    this.db.setMetadata('last_indexed', new Date().toISOString());
+    this.db.setMetadata('last_index_duration', duration);
+    this.db.setMetadata('last_index_file_count', filesIndexed.toString());
+    
     // Get statistics
     const stats = this.db.getStats();
 
@@ -120,13 +129,26 @@ export class CodeIndexer {
   }
 
   private async indexFile(filePath: string): Promise<void> {
+    const stats = fs.statSync(filePath);
     const content = fs.readFileSync(filePath, 'utf-8');
     const hash = crypto.createHash('sha256').update(content).digest('hex');
     
     // Check if file needs reindexing
-    const existingFile = this.db.getFileByPath(filePath);
+    const relativePath = path.relative(this.repoPath, filePath);
+    const existingFile = this.db.getFileByPath(relativePath);
+    
+    // Skip if file unchanged (same hash and not forced native parser reparse)
     if (existingFile && existingFile.hash === hash && !this.useNativeParser) {
       return; // File unchanged and using regex parser
+    }
+    
+    // Also skip if file hasn't been modified since last index
+    if (existingFile && existingFile.last_indexed) {
+      const lastIndexedTime = new Date(existingFile.last_indexed).getTime();
+      const fileModifiedTime = stats.mtime.getTime();
+      if (fileModifiedTime < lastIndexedTime && existingFile.hash === hash) {
+        return; // File not modified since last index
+      }
     }
 
     let parseResult: RubyParseResult | NativeParseResult;
@@ -145,7 +167,6 @@ export class CodeIndexer {
 
     // Convert native result to common format if needed
     const fileType = this.detectFileType(filePath);
-    const relativePath = path.relative(this.repoPath, filePath);
 
     // Store in database
     const fileId = this.db.upsertFile({
@@ -280,5 +301,57 @@ export class CodeIndexer {
     }
 
     return testFiles;
+  }
+
+  async incrementalReindex(): Promise<any> {
+    const startTime = Date.now();
+    let filesChecked = 0;
+    let filesUpdated = 0;
+    let filesFailed = 0;
+
+    // Find all Ruby files
+    const pattern = path.join(this.repoPath, '**/*.rb');
+    const files = await glob(pattern, { 
+      ignore: ['**/node_modules/**', '**/vendor/**', '**/.git/**', '**/.rails-index/**']
+    });
+
+    filesChecked = files.length;
+
+    // Check each file for changes
+    for (const filePath of files) {
+      try {
+        const stats = fs.statSync(filePath);
+        const relativePath = path.relative(this.repoPath, filePath);
+        const existingFile = this.db.getFileByPath(relativePath);
+        
+        // Index if file is new or modified
+        if (!existingFile || 
+            !existingFile.last_indexed ||
+            stats.mtime.getTime() > new Date(existingFile.last_indexed).getTime()) {
+          await this.indexFile(filePath);
+          filesUpdated++;
+        }
+      } catch (error) {
+        console.error(`Failed to check ${filePath}:`, error);
+        filesFailed++;
+      }
+    }
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    
+    // Update metadata
+    this.db.setMetadata('last_incremental_index', new Date().toISOString());
+    this.db.setMetadata('last_incremental_duration', duration);
+    
+    const stats = this.db.getStats();
+
+    return {
+      success: true,
+      filesChecked,
+      filesUpdated,
+      filesFailed,
+      duration: `${duration}s`,
+      stats
+    };
   }
 }

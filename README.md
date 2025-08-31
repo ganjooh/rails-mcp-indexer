@@ -117,13 +117,46 @@ You can also configure the server using environment variables:
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
 | `REPO_PATH` | Path to your Rails project | Current directory (`.`) | `/Users/me/myapp` |
-| `DB_PATH` | SQLite database location | `.rails-index/repo.db` | `/tmp/rails.db` |
+| `DB_PATH` | SQLite database location | `{project}/.rails-index/repo.db` | `/tmp/rails.db` |
 | `RUBY_AST_PARSER` | Custom Ruby parser path | Built-in parser | `/opt/parser.rb` |
+| `AUTO_INDEX` | Enable auto-indexing on startup | `true` | `false` |
 
 ```bash
 # Example with environment variables
 REPO_PATH=/path/to/rails/app DB_PATH=/tmp/index.db npx @hiteshganjoo/rails-mcp-indexer
+
+# Disable auto-indexing
+AUTO_INDEX=false npx @hiteshganjoo/rails-mcp-indexer
 ```
+
+### Auto-Indexing Features (v2.1.0+)
+
+The indexer now includes intelligent auto-indexing capabilities:
+
+#### 1. **Automatic Index on Startup**
+- Automatically indexes your Rails project when the server starts
+- Only indexes if:
+  - Database doesn't exist (first run)
+  - Repository path has changed
+  - Database is empty
+- Skips indexing if the existing index is valid
+- Can be disabled with `AUTO_INDEX=false`
+
+#### 2. **Project-Specific Database**
+- Database is now stored at `{project}/.rails-index/repo.db` by default
+- Each Rails project gets its own index
+- No more conflicts when switching between projects
+
+#### 3. **Incremental Indexing**
+- Only re-indexes files that have changed since last index
+- Checks file modification times vs last index time
+- Much faster than full reindex for large projects
+
+#### 4. **Smart Reindexing Detection**
+- Automatically detects when a full reindex is needed:
+  - When switching to a different Rails project
+  - When the database is corrupted or missing
+  - When explicitly requested via the `reindex` tool
 
 ### Project-Specific Configuration
 
@@ -133,7 +166,8 @@ Create a `.mcp.json` file in your Rails project root:
 {
   "rails-indexer": {
     "repoPath": ".",
-    "dbPath": ".rails-index/repo.db"
+    "dbPath": ".rails-index/repo.db",
+    "autoIndex": true
   }
 }
 ```
