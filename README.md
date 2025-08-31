@@ -1,83 +1,128 @@
-# Ruby AST Parser
+# Rails MCP Indexer
 
-A Ruby AST (Abstract Syntax Tree) parser that extracts symbols, structure, and metadata from Ruby files. Originally part of Rails MCP Indexer.
+An intelligent MCP (Model Context Protocol) server for Ruby on Rails projects that provides advanced code indexing, search, and analysis capabilities without requiring Ruby installation.
 
 ## Features
 
-- **AST-based Ruby parsing**: Uses parser gem (Ruby 2.7+) or Prism (Ruby 3.3+) for accurate AST extraction
-- **Rails-aware**: Recognizes Rails patterns (models, controllers, associations, validations)
-- **Symbol extraction**: Extracts classes, methods, modules with metadata
-- **Dependency tracking**: Tracks requires, includes, extends
-- **JSON output**: Outputs structured JSON for easy integration
+- 🔍 **Smart Symbol Search**: Find classes, methods, modules across your Rails codebase
+- 📊 **Call Graph Analysis**: Trace method calls and dependencies
+- 🧪 **Test Discovery**: Automatically find related test files
+- 📁 **Rails-aware**: Understands Rails conventions and patterns
+- 🚀 **No Ruby Required**: Works without Ruby installation using regex-based parsing
+- ⚡ **Fast Search**: SQLite FTS5 full-text search for instant results
 
-## Quick Start
+## Installation
 
-### Prerequisites
-
-- Ruby 2.7+ (Ruby 3.3+ recommended for Prism support)
-- `parser` gem for Ruby < 3.3
-
-### Installation
+### Via NPM (Recommended)
 
 ```bash
-# For Ruby < 3.3, install the parser gem
-gem install parser
-
-# Clone the repository
-git clone https://github.com/ganjooh/rails-mcp-indexer
-cd rails-mcp-indexer
+npm install -g @hiteshganjoo/rails-mcp-indexer
 ```
 
-## Usage
-
-### Command Line
+### Via Claude Code
 
 ```bash
-# Parse a Ruby file
-ruby src/ruby_ast_parser.rb path/to/file.rb
-
-# Parse from stdin
-echo 'class Test; def hello; "world"; end; end' | ruby src/ruby_ast_parser.rb /dev/stdin
+claude mcp add rails-indexer "npx @hiteshganjoo/rails-mcp-indexer"
 ```
 
-### Output Format
+### Via Claude Desktop
 
-The parser outputs JSON with the following structure:
+Add to your `claude_desktop_config.json`:
 
 ```json
 {
-  "hash": "file_content_hash",
-  "file_type": "model|controller|service|etc",
-  "line_count": 100,
-  "symbols": [
-    {
-      "name": "ClassName",
-      "type": "class|module|method",
-      "parent": "ParentClass",
-      "start_line": 1,
-      "end_line": 10,
-      "visibility": "public|private|protected",
-      "references": [],
-      "metadata": []
+  "mcpServers": {
+    "rails-indexer": {
+      "command": "npx",
+      "args": ["@hiteshganjoo/rails-mcp-indexer"],
+      "env": {
+        "REPO_PATH": "/path/to/your/rails/project",
+        "DB_PATH": "/path/to/index.db"
+      }
     }
-  ],
-  "requires": [],
-  "require_relatives": [],
-  "includes": [],
-  "extends": [],
-  "classes": [],
-  "modules": [],
-  "methods": [],
-  "associations": [],
-  "validations": [],
-  "callbacks": []
+  }
 }
 ```
 
-## Ruby Version Requirements
+## Configuration
 
-- **Ruby 2.7+**: Requires `parser` gem (`gem install parser`)
-- **Ruby 3.3+**: Built-in Prism support (recommended, but currently disabled due to compatibility issues)
+### Environment Variables
+
+- `REPO_PATH`: Path to your Rails project (default: current directory)
+- `DB_PATH`: Path to SQLite database (default: `.rails-index/repo.db`)
+- `RUBY_AST_PARSER`: Path to Ruby AST parser script (default: built-in)
+
+## Available Tools
+
+### 🔍 search_symbols
+
+Search for symbols (classes, methods, modules) in your codebase.
+
+```typescript
+{
+  "query": "User",           // Search query
+  "k": 10,                   // Number of results (default: 10)
+  "file_types": ["model"]    // Optional: Filter by file types
+}
+```
+
+### 📝 get_snippet
+
+Extract code snippets from files.
+
+```typescript
+{
+  "file_path": "app/models/user.rb",
+  "start_line": 10,          // Optional
+  "end_line": 20,            // Optional
+  "symbol_name": "validate"  // Optional: Extract specific symbol
+}
+```
+
+### 📊 call_graph
+
+Analyze call relationships between methods.
+
+```typescript
+{
+  "symbol": "User.authenticate",
+  "direction": "both",       // "callers" | "callees" | "both"
+  "depth": 2                 // Analysis depth
+}
+```
+
+### 🔄 find_similar
+
+Find code patterns similar to a given snippet.
+
+```typescript
+{
+  "code_snippet": "validates :email, presence: true",
+  "k": 5,                   // Number of results
+  "min_similarity": 0.7     // Minimum similarity score
+}
+```
+
+### 🧪 find_tests
+
+Find test files related to an implementation file.
+
+```typescript
+{
+  "file_path": "app/models/user.rb"
+}
+```
+
+### 🔄 reindex
+
+Reindex the codebase.
+
+```typescript
+{
+  "paths": ["app/models"],  // Optional: Specific paths
+  "full": false             // Full reindex
+}
+```
 
 ## Rails File Type Recognition
 
@@ -88,104 +133,136 @@ The indexer automatically recognizes these Rails patterns:
 | `model` | `app/models/**/*.rb` | User, Post, Comment |
 | `controller` | `app/controllers/**/*.rb` | UsersController |
 | `service` | `app/services/**/*.rb` | AuthenticationService |
-| `job` | `app/jobs/**/*.rb` | SendEmailJob |
+| `job` | `app/jobs/**/*.rb`, `app/sidekiq/**/*.rb` | SendEmailJob |
 | `policy` | `app/policies/**/*.rb` | UserPolicy |
 | `mailer` | `app/mailers/**/*.rb` | UserMailer |
 | `helper` | `app/helpers/**/*.rb` | ApplicationHelper |
 | `concern` | `app/*/concerns/**/*.rb` | Searchable |
-| `spec` | `spec/**/*_spec.rb` | user_spec.rb |
+| `spec` | `spec/**/*_spec.rb`, `test/**/*_test.rb` | user_spec.rb |
 | `migration` | `db/migrate/**/*.rb` | add_email_to_users.rb |
+
+## How It Works
+
+1. **Parsing**: Uses regex-based Ruby parser to extract symbols and structure
+2. **Indexing**: Stores parsed data in SQLite with FTS5 for fast search
+3. **MCP Protocol**: Exposes tools via Model Context Protocol for AI assistants
+
+## Architecture
+
+```
+┌──────────────────┐     ┌──────────────────┐
+│  Claude/AI Agent │────▶│   MCP Protocol   │
+└──────────────────┘     └──────────────────┘
+                                │
+                                ▼
+                         ┌──────────────────┐
+                         │  Rails MCP Server│
+                         └──────────────────┘
+                                │
+                ┌───────────────┼───────────────┐
+                ▼               ▼               ▼
+         ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+         │ Ruby Parser  │ │   Indexer    │ │   Database   │
+         └──────────────┘ └──────────────┘ └──────────────┘
+                │               │               │
+                └───────────────┼───────────────┘
+                                ▼
+                        ┌──────────────────┐
+                        │  Rails Codebase  │
+                        └──────────────────┘
+```
+
+## Development
+
+### Prerequisites
+
+- Node.js 18+
+- TypeScript 5+
+
+### Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/ganjooh/rails-mcp-indexer
+cd rails-mcp-indexer
+
+# Install dependencies
+npm install
+
+# Build the project
+npm run build
+
+# Test with sample Rails app
+REPO_PATH=./sample_rails_app npm start
+```
+
+### Testing
+
+```bash
+# Run tests
+npm test
+
+# Test with MCP Inspector
+npx @modelcontextprotocol/inspector npm start
+```
 
 ## Examples
 
-### Parsing a Rails Model
+### Using with Claude Code
+
 ```bash
-ruby src/ruby_ast_parser.rb app/models/user.rb
+# Add the server
+claude mcp add rails-indexer "npx @hiteshganjoo/rails-mcp-indexer"
+
+# Now you can ask Claude:
+# "Find all User model methods"
+# "Show me the authentication logic"
+# "Find tests for the User model"
 ```
 
-### Parsing Multiple Files
-```bash
-for file in app/models/*.rb; do
-  ruby src/ruby_ast_parser.rb "$file" > "${file%.rb}.json"
-done
-```
+### Direct Usage
 
-### Integration with Other Tools
-```ruby
-require 'json'
+```javascript
+// Example: Search for symbols
+const result = await mcpClient.callTool('search_symbols', {
+  query: 'authenticate',
+  k: 5
+});
 
-# Parse and process the output
-output = `ruby src/ruby_ast_parser.rb #{file_path}`
-data = JSON.parse(output)
-
-# Access extracted symbols
-data['symbols'].each do |symbol|
-  puts "#{symbol['type']}: #{symbol['name']}"
-end
+// Example: Get call graph
+const graph = await mcpClient.callTool('call_graph', {
+  symbol: 'User.authenticate',
+  direction: 'both'
+});
 ```
 
 ## Troubleshooting
 
-### Ruby Parser Issues
+### Server not connecting
 
-For Ruby < 3.3, install the parser gem:
-```bash
-gem install parser
-```
+1. Check Node.js version: `node --version` (should be 18+)
+2. Verify paths: Ensure REPO_PATH points to valid Rails project
+3. Check logs: Run with `DEBUG=* npm start`
 
-For Ruby >= 3.3, Prism should be built-in. If missing:
-```bash
-gem install prism
-```
+### Index not updating
 
+1. Run reindex: Use the `reindex` tool with `full: true`
+2. Check permissions: Ensure write access to DB_PATH directory
+3. Verify file patterns: Check if your Rails structure matches expected patterns
 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-### Development Setup
-
-```bash
-# Clone the repo
-git clone https://github.com/ganjooh/rails-mcp-indexer
-cd rails-mcp-indexer
-
-# Test the parser
-echo 'class Test; def hello; "world"; end; end' | ruby src/ruby_ast_parser.rb /dev/stdin
-```
-
-## Architecture
-
-```
-┌──────────────┐
-│  Ruby File   │
-└──────────────┘
-       │
-       ▼
-┌──────────────┐
-│ Ruby Parser  │ ──► parser gem (Ruby < 3.3)
-└──────────────┘ ──► Prism (Ruby 3.3+)
-       │
-       ▼
-┌──────────────┐
-│     AST      │
-└──────────────┘
-       │
-       ▼
-┌──────────────┐
-│ JSON Output  │
-└──────────────┘
-```
-
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
-
-## Credits
-
-Developed for the Ruby on Rails community.
 
 ## Support
 
 - Issues: [GitHub Issues](https://github.com/ganjooh/rails-mcp-indexer/issues)
 - Discussions: [GitHub Discussions](https://github.com/ganjooh/rails-mcp-indexer/discussions)
+
+## Acknowledgments
+
+Built with [Model Context Protocol SDK](https://github.com/modelcontextprotocol/sdk) for seamless AI integration.

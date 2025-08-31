@@ -1,0 +1,70 @@
+{
+  "name": "@hiteshganjoo/rails-mcp-indexer",
+  "version": "1.0.6",
+  "description": "Intelligent code indexing and retrieval system for Ruby on Rails projects with MCP integration",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "rails",
+    "ruby",
+    "indexing",
+    "ast",
+    "code-analysis",
+    "claude",
+    "ai-tools"
+  ],
+  "homepage": "https://github.com/ganjooh/rails-mcp-indexer",
+  "bugs": {
+    "url": "https://github.com/ganjooh/rails-mcp-indexer/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ganjooh/rails-mcp-indexer.git"
+  },
+  "license": "MIT",
+  "author": "Rails MCP Contributors",
+  "type": "module",
+  "bin": {
+    "mcp-server-rails-indexer": "dist/index.js"
+  },
+  "files": [
+    "dist/**/*",
+    "src/ruby_ast_parser.rb",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc && chmod +x dist/index.js",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepare": "npm run build",
+    "start": "node dist/index.js",
+    "test": "echo \"Tests coming soon\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "better-sqlite3": "^11.0.0",
+    "glob": "^10.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "mcp": {
+    "server": {
+      "command": "node",
+      "args": [
+        "dist/index.js"
+      ],
+      "requirements": {
+        "node": ">=18.0.0"
+      }
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -80,3 +80,16 @@ coverage.xml
 
 # Documentation
 docs/_build/
+
+# Test files
+test_*.sh
+test_*.js
+sample_rails_app/
+*.test.js
+*.spec.js
+
+# Temporary files
+tmp/
+temp/
+reindex_database.js
+mcp_server.js
