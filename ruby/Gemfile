@@ -1,0 +1,12 @@
+# frozen_string_literal: true
+
+source 'https://rubygems.org'
+
+# Ruby AST parser for versions < 3.3
+gem 'parser', '~> 3.3'
+
+# Optional: Prism for Ruby 3.3+ (will be built-in)
+gem 'prism', '~> 1.0' if RUBY_VERSION >= '3.3.0'
+
+# For SHA256 hashing
+gem 'digest'

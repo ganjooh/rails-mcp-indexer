@@ -1,0 +1,22 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    ast (2.4.3)
+    digest (3.2.0)
+    parser (3.3.9.0)
+      ast (~> 2.4.1)
+      racc
+    prism (1.4.0)
+    racc (1.8.1)
+
+PLATFORMS
+  arm64-darwin-23
+  ruby
+
+DEPENDENCIES
+  digest
+  parser (~> 3.3)
+  prism (~> 1.0)
+
+BUNDLED WITH
+   2.5.14

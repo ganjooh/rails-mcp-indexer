@@ -1,7 +1,7 @@
 {
   "name": "@hiteshganjoo/rails-mcp-indexer",
-  "version": "1.0.7",
-  "description": "Intelligent code indexing and retrieval system for Ruby on Rails projects with MCP integration",
+  "version": "2.0.0",
+  "description": "Native Ruby AST parser with MCP integration for Rails projects - supports both native Ruby parsing and regex fallback",
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -29,6 +29,8 @@
   },
   "files": [
     "dist/**/*",
+    "ruby/**/*",
+    "scripts/**/*",
     "src/ruby_ast_parser.rb",
     "README.md",
     "LICENSE",
@@ -39,6 +41,7 @@
     "watch": "tsc --watch",
     "clean": "rm -rf dist",
     "prepare": "npm run build",
+    "postinstall": "node scripts/postinstall-check.js",
     "start": "node dist/index.js",
     "test": "echo \"Tests coming soon\""
   },

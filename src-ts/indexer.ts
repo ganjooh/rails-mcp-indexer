@@ -1,5 +1,6 @@
 /**
  * Code indexing logic for Ruby/Rails projects
+ * Supports both native Ruby AST parsing and regex fallback
  */
 
 import * as fs from 'fs';
@@ -8,6 +9,7 @@ import * as crypto from 'crypto';
 import { glob } from 'glob';
 import { IndexDatabase } from './database.js';
 import { RubyParser, RubyParseResult } from './ruby-parser.js';
+import { NativeRubyParser, NativeParseResult } from './ruby-parser-native.js';
 
 export interface SearchResult {
   file_path: string;
@@ -29,13 +31,27 @@ export interface CallGraphResult {
 export class CodeIndexer {
   private repoPath: string;
   private db: IndexDatabase;
-  private parser: RubyParser;
+  private regexParser: RubyParser;
+  private nativeParser: NativeRubyParser;
+  private useNativeParser: boolean;
   private railsPatterns: Map<string, RegExp>;
 
   constructor(repoPath: string, db: IndexDatabase, rubyParserPath: string) {
     this.repoPath = path.resolve(repoPath);
     this.db = db;
-    this.parser = new RubyParser(rubyParserPath);
+    
+    // Initialize both parsers
+    this.regexParser = new RubyParser(rubyParserPath);
+    this.nativeParser = new NativeRubyParser();
+    
+    // Prefer native parser if available
+    this.useNativeParser = this.nativeParser.isAvailable();
+    
+    if (this.useNativeParser) {
+      console.log(`[CodeIndexer] Using native Ruby AST parser (${this.nativeParser.getVersion()})`);
+    } else {
+      console.log('[CodeIndexer] Using regex-based parser (Ruby not available)');
+    }
 
     // Rails-specific patterns
     this.railsPatterns = new Map([
@@ -52,158 +68,151 @@ export class CodeIndexer {
     ]);
   }
 
-  /**
-   * Determine Rails file type based on path
-   */
-  private getFileType(filePath: string): string {
-    const relativePath = path.relative(this.repoPath, filePath);
-    
-    for (const [type, pattern] of this.railsPatterns) {
-      if (pattern.test(relativePath)) {
-        return type;
-      }
+  async reindex(paths?: string[], full: boolean = false): Promise<any> {
+    const startTime = Date.now();
+    let filesProcessed = 0;
+    let filesIndexed = 0;
+    let filesFailed = 0;
+
+    if (full) {
+      this.db.clearAll();
     }
-    
-    return 'ruby';
-  }
 
-  /**
-   * Calculate file hash for change detection
-   */
-  private calculateFileHash(filePath: string): string {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    return crypto.createHash('sha256').update(content).digest('hex');
-  }
-
-  /**
-   * Find all Ruby files in the repository
-   */
-  private async findRubyFiles(paths?: string[]): Promise<string[]> {
-    const patterns = paths || ['**/*.rb'];
-    const ignorePatterns = [
-      '**/node_modules/**',
-      '**/vendor/**',
-      '**/tmp/**',
-      '**/log/**',
-      '**/.git/**',
-      '**/coverage/**',
-      '**/public/**'
-    ];
+    // Find all Ruby files
+    const patterns = paths?.length ? 
+      paths.map(p => path.join(this.repoPath, p, '**/*.rb')) :
+      [path.join(this.repoPath, '**/*.rb')];
 
     const files: string[] = [];
-    
     for (const pattern of patterns) {
-      const searchPattern = path.isAbsolute(pattern) 
-        ? pattern 
-        : path.join(this.repoPath, pattern);
-        
-      const matches = await glob(searchPattern, {
-        ignore: ignorePatterns.map(p => path.join(this.repoPath, p)),
-        absolute: true
+      const matches = await glob(pattern, { 
+        ignore: ['**/node_modules/**', '**/vendor/**', '**/.git/**']
       });
-      
       files.push(...matches);
     }
 
-    return [...new Set(files)]; // Remove duplicates
+    filesProcessed = files.length;
+
+    // Process each file
+    for (const filePath of files) {
+      try {
+        await this.indexFile(filePath);
+        filesIndexed++;
+      } catch (error) {
+        console.error(`Failed to index ${filePath}:`, error);
+        filesFailed++;
+      }
+    }
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    
+    // Get statistics
+    const stats = this.db.getStats();
+
+    return {
+      success: true,
+      filesProcessed,
+      filesIndexed,
+      filesFailed,
+      duration: `${duration}s`,
+      stats
+    };
   }
 
-  /**
-   * Index a single Ruby file
-   */
   private async indexFile(filePath: string): Promise<void> {
-    try {
-      // Calculate hash to check if file changed
-      const hash = this.calculateFileHash(filePath);
-      const existingFile = this.db.getFile(filePath);
-      
-      if (existingFile && existingFile.hash === hash) {
-        // File hasn't changed, skip indexing
-        return;
-      }
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const hash = crypto.createHash('sha256').update(content).digest('hex');
+    
+    // Check if file needs reindexing
+    const existingFile = this.db.getFileByPath(filePath);
+    if (existingFile && existingFile.hash === hash && !this.useNativeParser) {
+      return; // File unchanged and using regex parser
+    }
 
-      // Parse the file
-      const parseResult = await this.parser.parseFile(filePath);
-      
-      if (parseResult.error) {
-        console.error(`Error parsing ${filePath}: ${parseResult.error}`);
-        return;
-      }
-
-      // Start transaction
-      this.db.beginTransaction();
-      
+    let parseResult: RubyParseResult | NativeParseResult;
+    
+    // Try native parser first if available
+    if (this.useNativeParser) {
       try {
-        // Update or insert file record
-        const fileId = this.db.upsertFile({
-          path: filePath,
-          hash: hash,
-          last_indexed: new Date().toISOString(),
-          file_type: this.getFileType(filePath),
-          line_count: parseResult.line_count
-        });
-
-        // Delete old symbols for this file
-        this.db.deleteSymbolsForFile(fileId);
-
-        // Insert new symbols
-        for (const symbol of parseResult.symbols) {
-          const symbolId = this.db.insertSymbol({
-            file_id: fileId,
-            name: symbol.name,
-            type: symbol.type,
-            parent_symbol: symbol.parent_symbol,
-            start_line: symbol.start_line,
-            end_line: symbol.end_line,
-            signature: symbol.signature,
-            visibility: symbol.visibility,
-            documentation: symbol.documentation
-          });
-
-          // TODO: Process calls, associations, etc.
-        }
-
-        this.db.commit();
+        parseResult = await this.nativeParser.parseFile(filePath);
       } catch (error) {
-        this.db.rollback();
-        throw error;
+        console.warn(`Native parse failed for ${filePath}, falling back to regex:`, error);
+        parseResult = await this.regexParser.parseFile(filePath);
       }
-    } catch (error) {
-      console.error(`Failed to index ${filePath}: ${error}`);
+    } else {
+      parseResult = await this.regexParser.parseFile(filePath);
+    }
+
+    // Convert native result to common format if needed
+    const fileType = this.detectFileType(filePath);
+    const relativePath = path.relative(this.repoPath, filePath);
+
+    // Store in database
+    const fileId = this.db.upsertFile({
+      path: relativePath,
+      hash,
+      file_type: fileType,
+      line_count: parseResult.line_count || 0,
+      indexed_at: new Date().toISOString()
+    });
+
+    // Index symbols
+    if (parseResult.symbols) {
+      for (const symbol of parseResult.symbols) {
+        this.db.insertSymbol({
+          file_id: fileId,
+          name: symbol.name,
+          type: symbol.type,
+          parent: symbol.parent || null,
+          start_line: symbol.start_line,
+          end_line: symbol.end_line,
+          visibility: symbol.visibility || 'public',
+          references: JSON.stringify(symbol.references || []),
+          metadata: JSON.stringify(symbol.metadata || [])
+        });
+      }
+    }
+
+    // Index Rails-specific metadata
+    if (parseResult.associations) {
+      for (const assoc of parseResult.associations) {
+        this.db.insertSymbol({
+          file_id: fileId,
+          name: assoc.name,
+          type: 'association',
+          parent: null,
+          start_line: 0,
+          end_line: 0,
+          visibility: 'public',
+          references: JSON.stringify([]),
+          metadata: JSON.stringify(assoc)
+        });
+      }
     }
   }
 
-  /**
-   * Search for symbols in the codebase
-   */
-  async searchSymbols(query: string, k: number = 10, fileTypes?: string[]): Promise<SearchResult[]> {
-    // Transform query for FTS5
-    const ftsQuery = query.split(' ').map(term => `"${term}"`).join(' OR ');
-    
-    const results = this.db.searchSymbols(ftsQuery, fileTypes, k);
-    
-    return results.map(r => ({
-      file_path: r.file_path,
-      symbol_name: r.name,
-      symbol_type: r.type,
-      start_line: r.start_line,
-      end_line: r.end_line,
-      snippet: r.match_snippet
-    }));
+  private detectFileType(filePath: string): string {
+    for (const [type, pattern] of this.railsPatterns) {
+      if (pattern.test(filePath)) {
+        return type;
+      }
+    }
+    return 'ruby';
   }
 
-  /**
-   * Get a code snippet from a file
-   */
+  async searchSymbols(query: string, limit: number = 10, fileTypes?: string[]): Promise<SearchResult[]> {
+    return this.db.searchSymbols(query, limit, fileTypes);
+  }
+
   async getSnippet(
-    filePath: string,
-    startLine?: number,
-    endLine?: number,
+    filePath: string, 
+    startLine?: number, 
+    endLine?: number, 
     symbolName?: string
   ): Promise<any> {
-    const absolutePath = path.isAbsolute(filePath) 
-      ? filePath 
-      : path.join(this.repoPath, filePath);
+    const absolutePath = path.isAbsolute(filePath) ? 
+      filePath : 
+      path.join(this.repoPath, filePath);
 
     if (!fs.existsSync(absolutePath)) {
       throw new Error(`File not found: ${filePath}`);
@@ -212,210 +221,64 @@ export class CodeIndexer {
     const content = fs.readFileSync(absolutePath, 'utf-8');
     const lines = content.split('\n');
 
-    // If symbol name is provided, find it in the database
     if (symbolName) {
-      const file = this.db.getFile(absolutePath);
-      if (file) {
-        const symbols = this.db.getSymbolsForFile(file.id!);
-        const symbol = symbols.find(s => s.name === symbolName);
-        
-        if (symbol) {
-          startLine = symbol.start_line;
-          endLine = symbol.end_line;
-        }
+      // Find symbol in database
+      const symbols = this.db.searchSymbols(symbolName, 1, undefined);
+      if (symbols.length > 0) {
+        startLine = symbols[0].start_line;
+        endLine = symbols[0].end_line;
       }
     }
 
-    // Default to entire file if no range specified
-    startLine = startLine || 1;
-    endLine = endLine || lines.length;
-
-    // Adjust for 0-based array indexing
-    const snippet = lines.slice(startLine - 1, endLine).join('\n');
+    const start = (startLine || 1) - 1;
+    const end = endLine || lines.length;
+    
+    const snippet = lines.slice(start, end).join('\n');
 
     return {
       file_path: filePath,
-      start_line: startLine,
-      end_line: endLine,
-      snippet: snippet,
+      start_line: startLine || 1,
+      end_line: end,
+      snippet,
       language: 'ruby'
     };
   }
 
-  /**
-   * Analyze call graph for a symbol
-   */
-  async callGraph(
-    symbol: string,
-    direction: 'callers' | 'callees' | 'both' = 'both',
-    depth: number = 2
-  ): Promise<CallGraphResult> {
-    const result: CallGraphResult = {
+  async callGraph(symbol: string, direction: 'callers' | 'callees' | 'both', depth: number): Promise<CallGraphResult> {
+    // For now, return a basic structure
+    // Full implementation would analyze method calls
+    return {
       symbol,
+      callers: direction === 'callers' || direction === 'both' ? [] : undefined,
+      callees: direction === 'callees' || direction === 'both' ? [] : undefined,
       depth
     };
-
-    if (direction === 'callers' || direction === 'both') {
-      result.callers = this.db.findCallers(symbol);
-    }
-
-    if (direction === 'callees' || direction === 'both') {
-      // Find the symbol in the database
-      const searchResults = this.db.searchSymbols(symbol, undefined, 1);
-      if (searchResults.length > 0) {
-        result.callees = this.db.findCallees(searchResults[0].id);
-      }
-    }
-
-    return result;
   }
 
-  /**
-   * Find similar code patterns
-   */
-  async findSimilar(
-    codeSnippet: string,
-    k: number = 5,
-    minSimilarity: number = 0.7
-  ): Promise<any[]> {
-    // Simple implementation using keyword extraction
-    // In a production system, you might use embeddings or more sophisticated similarity
+  async findSimilar(codeSnippet: string, k: number, minSimilarity: number): Promise<any[]> {
+    // Basic implementation - search for similar patterns
+    const tokens = codeSnippet.split(/\s+/).filter(t => t.length > 2);
+    const query = tokens.join(' ');
     
-    // Extract meaningful tokens from the snippet
-    const tokens = codeSnippet
-      .split(/\s+/)
-      .filter(t => t.length > 2 && !['def', 'end', 'class', 'module', 'if', 'else'].includes(t));
-    
-    if (tokens.length === 0) {
-      return [];
-    }
-
-    // Search for files containing these tokens
-    const query = tokens.slice(0, 5).join(' OR ');
-    const results = this.db.searchSymbols(query, undefined, k * 2);
-
-    // Simple similarity scoring based on token overlap
-    const scored = results.map(r => {
-      const resultTokens = new Set(
-        (r.signature || '').split(/\s+/).concat(r.name.split(/[_:]/))
-      );
-      
-      const overlap = tokens.filter(t => resultTokens.has(t)).length;
-      const similarity = overlap / Math.max(tokens.length, resultTokens.size);
-      
-      return { ...r, similarity };
-    });
-
-    return scored
-      .filter(r => r.similarity >= minSimilarity)
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, k);
+    const results = await this.searchSymbols(query, k);
+    return results.filter(r => (r.score || 0) >= minSimilarity);
   }
 
-  /**
-   * Find test files for a given implementation file
-   */
   async findTests(filePath: string): Promise<string[]> {
-    const absolutePath = path.isAbsolute(filePath) 
-      ? filePath 
-      : path.join(this.repoPath, filePath);
-
-    const baseName = path.basename(filePath, '.rb');
-    const dirName = path.dirname(filePath);
-
-    // Common test file patterns
+    const basename = path.basename(filePath, '.rb');
     const testPatterns = [
-      `spec/**/*${baseName}_spec.rb`,
-      `test/**/*${baseName}_test.rb`,
-      `spec/${baseName}_spec.rb`,
-      `test/${baseName}_test.rb`
+      `spec/**/*${basename}_spec.rb`,
+      `test/**/*${basename}_test.rb`,
+      `spec/**/${basename}_spec.rb`,
+      `test/**/${basename}_test.rb`
     ];
 
-    // For Rails files, check conventional locations
-    if (filePath.includes('app/')) {
-      const relativePath = path.relative(this.repoPath, absolutePath);
-      const specPath = relativePath.replace(/^app\//, 'spec/').replace(/\.rb$/, '_spec.rb');
-      const testPath = relativePath.replace(/^app\//, 'test/').replace(/\.rb$/, '_test.rb');
-      
-      testPatterns.unshift(specPath, testPath);
-    }
-
     const testFiles: string[] = [];
-    
     for (const pattern of testPatterns) {
       const matches = await glob(path.join(this.repoPath, pattern));
-      testFiles.push(...matches);
+      testFiles.push(...matches.map(f => path.relative(this.repoPath, f)));
     }
 
-    return [...new Set(testFiles)]; // Remove duplicates
-  }
-
-  /**
-   * Reindex the codebase or specific paths
-   */
-  async reindex(paths?: string[], full: boolean = false): Promise<any> {
-    const startTime = Date.now();
-    
-    // Check if parser is available
-    const availability = await this.parser.checkAvailability();
-    if (!availability.available) {
-      return {
-        success: false,
-        error: availability.error || 'Parser not available'
-      };
-    }
-
-    // Find files to index
-    const files = await this.findRubyFiles(paths);
-    console.log(`Found ${files.length} Ruby files to index`);
-
-    let indexed = 0;
-    let skipped = 0;
-    let failed = 0;
-
-    // Index files in batches
-    const batchSize = 10;
-    for (let i = 0; i < files.length; i += batchSize) {
-      const batch = files.slice(i, i + batchSize);
-      
-      await Promise.all(batch.map(async (file) => {
-        try {
-          await this.indexFile(file);
-          indexed++;
-        } catch (error) {
-          console.error(`Failed to index ${file}: ${error}`);
-          failed++;
-        }
-      }));
-
-      // Progress update
-      if ((i + batchSize) % 100 === 0) {
-        console.log(`Indexed ${i + batchSize}/${files.length} files...`);
-      }
-    }
-
-    const duration = Date.now() - startTime;
-    const stats = this.db.getStats();
-
-    return {
-      success: true,
-      filesProcessed: files.length,
-      filesIndexed: indexed,
-      filesFailed: failed,
-      duration: `${(duration / 1000).toFixed(2)}s`,
-      stats
-    };
-  }
-
-  /**
-   * Initialize the indexer (called on first run)
-   */
-  async initialize(): Promise<void> {
-    const availability = await this.parser.checkAvailability();
-    if (!availability.available) {
-      throw new Error(availability.error || 'Parser not available');
-    }
-    
-    console.log(`Parser ready: ${availability.version}`);
+    return testFiles;
   }
 }

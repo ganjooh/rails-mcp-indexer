@@ -10,7 +10,8 @@ export interface FileRecord {
   id?: number;
   path: string;
   hash: string;
-  last_indexed: string;
+  last_indexed?: string;
+  indexed_at?: string;
   file_type: string;
   line_count: number;
 }
@@ -20,12 +21,15 @@ export interface SymbolRecord {
   file_id: number;
   name: string;
   type: string;
-  parent_symbol: string | null;
+  parent?: string | null;
+  parent_symbol?: string | null;
   start_line: number;
   end_line: number;
-  signature: string | null;
+  signature?: string | null;
   visibility: string;
-  documentation: string | null;
+  documentation?: string | null;
+  references?: string;
+  metadata?: string;
 }
 
 export interface CallRecord {
@@ -184,7 +188,7 @@ export class IndexDatabase {
     stmt.run(fileId);
   }
 
-  searchSymbols(query: string, fileTypes?: string[], limit: number = 10): any[] {
+  searchSymbols(query: string, limit: number = 10, fileTypes?: string[]): any[] {
     let sql = `
       SELECT 
         s.*,
@@ -267,6 +271,21 @@ export class IndexDatabase {
 
   close(): void {
     this.db.close();
+  }
+
+  // Additional methods for indexer
+  clearAll(): void {
+    this.db.prepare('DELETE FROM calls').run();
+    this.db.prepare('DELETE FROM symbols').run();
+    this.db.prepare('DELETE FROM files').run();
+  }
+
+  getFileByPath(filePath: string): FileRecord | undefined {
+    const relativePath = filePath.includes('/') && !filePath.startsWith('/') ? 
+      filePath : 
+      filePath.replace(/^.*?\//, '');
+    const stmt = this.db.prepare('SELECT * FROM files WHERE path = ?');
+    return stmt.get(relativePath) as FileRecord | undefined;
   }
 
   // Get statistics

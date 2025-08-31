@@ -10,12 +10,15 @@ import * as path from 'path';
 export interface RubySymbol {
   name: string;
   type: string;
-  parent_symbol: string | null;
+  parent?: string | null;
+  parent_symbol?: string | null;
   start_line: number;
   end_line: number;
-  signature: string | null;
+  signature?: string | null;
   visibility: string;
-  documentation: string | null;
+  documentation?: string | null;
+  references?: string[];
+  metadata?: any[];
 }
 
 export interface RubyParseResult {
