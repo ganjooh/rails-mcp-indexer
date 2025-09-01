@@ -39,83 +39,19 @@ An intelligent MCP (Model Context Protocol) server for Ruby on Rails projects th
 
 ## Quick Start
 
-### 1. Install the Package
-
-```bash
-# No installation needed - use directly with npx
-npx rails-ast-mcp-server
-```
-
-### 2. Setup in Your Rails Project
-
-#### Option A: Claude Code (Recommended)
+### Claude Code
 
 ```bash
 # Add the server for your Rails project (requires full path)
-claude mcp add rails-ast "npx -y rails-ast-mcp-server" /path/to/your/rails/project
+claude mcp add rails-ast npx -- -y rails-ast-mcp-server /path/to/your/rails/project
 
 # Example:
-claude mcp add rails-ast "npx -y rails-ast-mcp-server" /Users/you/sources/my-rails-app
+claude mcp add rails-ast npx -- -y rails-ast-mcp-server /Users/you/sources/my-rails-app
 
 # Restart Claude Code to activate the server
 ```
 
-#### What Your Config Should Look Like
-
-After running the command, Claude Code adds this to your config:
-
-```json
-{
-  "rails-ast": {
-    "type": "stdio",
-    "command": "npx",
-    "args": [
-      "-y",
-      "rails-ast-mcp-server",
-      "/Users/you/sources/your-rails-project"
-    ],
-    "env": {}
-  }
-}
-```
-
-**Important:** 
-- Always use the full absolute path to your Rails project
-- The server connects instantly and indexes in the background
-- Check indexing status with the `get_index_status` tool
-
-#### Option B: Claude Desktop
-
-Add to your `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "rails-ast": {
-      "command": "npx",
-      "args": ["rails-ast-mcp-server", "/path/to/your/rails/project"]
-    }
-  }
-}
-```
-
-#### Option C: Cursor IDE
-
-Add to your `.cursor/mcp.json` in your Rails project:
-
-```json
-{
-  "mcpServers": {
-    "rails-ast": {
-      "command": "npx",
-      "args": ["rails-ast-mcp-server"],
-      "env": {
-        "REPO_PATH": "."
-      }
-    }
-  }
-}
-```
+**Important:** Always use the full absolute path to your Rails project
 
 ## Configuration
 
