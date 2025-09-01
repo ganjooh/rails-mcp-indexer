@@ -1,6 +1,6 @@
 {
   "name": "@hiteshganjoo/rails-mcp-indexer",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Rails MCP server with database schema awareness - parses both Ruby AST and db/schema.rb for complete Rails intelligence",
   "keywords": [
     "mcp",
