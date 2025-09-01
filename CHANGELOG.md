@@ -5,6 +5,14 @@ All notable changes to Rails MCP Indexer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] - 2025-09-01
+
+### Fixed
+- Improved connection reliability when path argument is not provided
+- Better error messages when Rails project path is invalid
+- Default to current working directory if no path specified
+- Added Rails project validation (checks for Gemfile or app/ directory)
+
 ## [2.3.0] - 2025-09-01
 
 ### Added

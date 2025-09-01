@@ -103,10 +103,27 @@ export class RailsMcpServer {
 
   constructor() {
     // Get configuration from environment variables or command line args
-    this.repoPath = process.argv[2] || process.env.REPO_PATH || '.';
+    this.repoPath = process.argv[2] || process.env.REPO_PATH || process.cwd();
     
     // Resolve to absolute path
     this.repoPath = path.resolve(this.repoPath);
+    
+    // Validate that the path exists and looks like a Rails project
+    if (!fs.existsSync(this.repoPath)) {
+      console.error(`[Rails MCP Indexer] Error: Path does not exist: ${this.repoPath}`);
+      console.error(`[Rails MCP Indexer] Usage: mcp-server-rails-indexer /path/to/rails/project`);
+      console.error(`[Rails MCP Indexer] Or set REPO_PATH environment variable`);
+      // Create a minimal server that responds to protocol but explains the error
+      this.repoPath = process.cwd();
+    } else {
+      // Check if it looks like a Rails project
+      const hasGemfile = fs.existsSync(path.join(this.repoPath, 'Gemfile'));
+      const hasApp = fs.existsSync(path.join(this.repoPath, 'app'));
+      if (!hasGemfile && !hasApp) {
+        console.error(`[Rails MCP Indexer] Warning: ${this.repoPath} doesn't look like a Rails project`);
+        console.error(`[Rails MCP Indexer] Missing Gemfile or app/ directory`);
+      }
+    }
     
     // Use project-specific database path by default
     const defaultDbPath = path.join(this.repoPath, '.rails-index', 'repo.db');
@@ -130,7 +147,7 @@ export class RailsMcpServer {
     this.server = new Server(
       {
         name: 'rails-mcp-indexer',
-        version: '2.2.0'
+        version: '2.3.0'
       },
       {
         capabilities: {
