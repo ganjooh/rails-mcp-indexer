@@ -1,6 +1,6 @@
 {
   "name": "rails-ast-mcp-server",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "MCP server for Rails code AST parsing, indexing and knowledge graph navigation - complete Rails intelligence with database schema awareness",
   "keywords": [
     "mcp",

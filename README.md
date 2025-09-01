@@ -54,17 +54,42 @@ npx rails-ast-mcp-server
 #### Option A: Claude Code (Recommended)
 
 ```bash
-# Navigate to your Rails project
-cd /path/to/your/rails/project
+# IMPORTANT: Use the full path to your Rails project
+# The '.' argument doesn't work reliably with Claude Code
 
-# Add the MCP server with the current directory as the repo path
-claude mcp add rails-ast "npx rails-ast-mcp-server" .
+# Option 1: Using npx (recommended - no installation needed)
+claude mcp add rails-ast "npx -y rails-ast-mcp-server" /path/to/your/rails/project
 
-# Or if installed globally
-claude mcp add rails-ast rails-ast-mcp-server .
+# Example for your project:
+claude mcp add rails-ast "npx -y rails-ast-mcp-server" /Users/you/sources/myapp
+
+# Option 2: If you prefer global installation
+npm install -g rails-ast-mcp-server
+claude mcp add rails-ast rails-ast-mcp-server /path/to/your/rails/project
 
 # Restart Claude Code to activate
 ```
+
+#### What Your Config Should Look Like
+
+After running the command, your MCP config should have:
+
+```json
+{
+  "rails-ast": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "-y",
+      "rails-ast-mcp-server",
+      "/Users/you/sources/your-rails-project"  // FULL PATH REQUIRED
+    ],
+    "env": {}
+  }
+}
+```
+
+**Note:** The full path is required. Relative paths like `.` won't work reliably.
 
 #### Option B: Claude Desktop
 

@@ -5,6 +5,23 @@ All notable changes to Rails AST MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-09-01
+
+### Fixed
+- **Connection Timeout Fix**: MCP connection now established BEFORE indexing starts
+- **Background Indexing**: Auto-indexing runs in background, preventing timeouts
+- **No More Failures**: Server connects instantly, even for large Rails projects
+
+### Added
+- **Index Status Tracking**: New `get_index_status` tool to check indexing progress
+- **Partial Results Warning**: Tools now indicate when indexing is in progress
+- **Better Status Reporting**: Track files processed, errors, and completion time
+
+### Improved
+- Server startup is now instant (indexing doesn't block connection)
+- Large projects can be indexed without connection timeouts
+- Better user experience with background processing
+
 ## [1.0.0] - 2025-09-01
 
 ### New Package Release

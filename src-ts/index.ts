@@ -100,6 +100,14 @@ export class RailsMcpServer {
   private db: IndexDatabase;
   private repoPath: string;
   private autoIndexOnStartup: boolean;
+  private indexingStatus: {
+    inProgress: boolean;
+    startedAt?: Date;
+    completedAt?: Date;
+    filesProcessed?: number;
+    totalFiles?: number;
+    error?: string;
+  } = { inProgress: false };
 
   constructor() {
     // Get configuration from environment variables or command line args
@@ -259,6 +267,14 @@ export class RailsMcpServer {
             }
           },
           {
+            name: 'get_index_status',
+            description: 'Get the current status of code indexing',
+            inputSchema: {
+              type: 'object',
+              properties: {}
+            }
+          },
+          {
             name: 'db_tables',
             description: 'List all database tables from schema.rb',
             inputSchema: {
@@ -388,15 +404,21 @@ export class RailsMcpServer {
         switch (name) {
           case 'search_symbols': {
             const params = SearchSymbolsSchema.parse(args);
+            
+            // Add warning if indexing is in progress
+            const warning = this.indexingStatus.inProgress ? 
+              'Note: Indexing is currently in progress. Results may be incomplete.\n\n' : '';
+            
             const results = await this.indexer.searchSymbols(
               params.query,
               params.k,
               params.file_types
             );
+            
             return {
               content: [{
                 type: 'text',
-                text: JSON.stringify(results, null, 2)
+                text: warning + JSON.stringify(results, null, 2)
               } as TextContent]
             };
           }
@@ -460,11 +482,56 @@ export class RailsMcpServer {
 
           case 'reindex': {
             const params = ReindexSchema.parse(args);
-            const result = await this.indexer.reindex(params.paths, params.full);
+            // Update status for manual reindex
+            this.indexingStatus = {
+              inProgress: true,
+              startedAt: new Date(),
+              filesProcessed: 0
+            };
+            
+            try {
+              const result = await this.indexer.reindex(params.paths, params.full);
+              this.indexingStatus = {
+                inProgress: false,
+                completedAt: new Date(),
+                filesProcessed: result.filesIndexed,
+                totalFiles: result.filesProcessed
+              };
+              return {
+                content: [{
+                  type: 'text',
+                  text: JSON.stringify(result, null, 2)
+                } as TextContent]
+              };
+            } catch (error: any) {
+              this.indexingStatus = {
+                inProgress: false,
+                error: error.message
+              };
+              throw error;
+            }
+          }
+
+          case 'get_index_status': {
+            const stats = this.db.getStats();
+            const metadata = this.db.getAllMetadata();
+            
+            const status = {
+              indexing: this.indexingStatus,
+              database: {
+                files: stats.files,
+                symbols: stats.symbols,
+                calls: stats.calls,
+                symbolTypes: stats.symbolTypes
+              },
+              lastIndexed: metadata.last_indexed,
+              repoPath: this.repoPath
+            };
+            
             return {
               content: [{
                 type: 'text',
-                text: JSON.stringify(result, null, 2)
+                text: JSON.stringify(status, null, 2)
               } as TextContent]
             };
           }
@@ -663,27 +730,48 @@ export class RailsMcpServer {
   }
 
   async start() {
-    // Check if auto-indexing is needed
-    if (this.autoIndexOnStartup) {
-      try {
-        if (this.db.needsReindex(this.repoPath)) {
-          console.error(`[Rails AST MCP] Auto-indexing ${this.repoPath}...`);
-          const result = await this.indexer.reindex([], false);
-          console.error(`[Rails AST MCP] Indexed ${result.filesIndexed} files in ${result.duration}`);
-        } else {
-          const metadata = this.db.getAllMetadata();
-          const lastIndexed = metadata.last_indexed ? new Date(metadata.last_indexed).toLocaleString() : 'never';
-          console.error(`[Rails AST MCP] Using existing index (last updated: ${lastIndexed})`);
-        }
-      } catch (error) {
-        console.error('[Rails AST MCP] Auto-index failed:', error);
-        // Continue anyway - user can manually reindex
-      }
-    }
-
+    // CRITICAL: Establish MCP connection FIRST to avoid timeouts
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     console.error(`[Rails AST MCP] Server started for ${this.repoPath}`);
+
+    // Run indexing in background AFTER connection is established
+    if (this.autoIndexOnStartup) {
+      // Use setImmediate to run indexing after current I/O events
+      setImmediate(async () => {
+        try {
+          if (this.db.needsReindex(this.repoPath)) {
+            this.indexingStatus = {
+              inProgress: true,
+              startedAt: new Date(),
+              filesProcessed: 0
+            };
+            console.error(`[Rails AST MCP] Background indexing started for ${this.repoPath}...`);
+            
+            const result = await this.indexer.reindex([], false);
+            
+            this.indexingStatus = {
+              inProgress: false,
+              completedAt: new Date(),
+              filesProcessed: result.filesIndexed,
+              totalFiles: result.filesProcessed
+            };
+            console.error(`[Rails AST MCP] Background indexing completed: ${result.filesIndexed} files in ${result.duration}`);
+          } else {
+            const metadata = this.db.getAllMetadata();
+            const lastIndexed = metadata.last_indexed ? new Date(metadata.last_indexed).toLocaleString() : 'never';
+            console.error(`[Rails AST MCP] Using existing index (last updated: ${lastIndexed})`);
+          }
+        } catch (error: any) {
+          this.indexingStatus = {
+            inProgress: false,
+            error: error.message || 'Unknown error'
+          };
+          console.error('[Rails AST MCP] Background indexing failed:', error);
+          // Continue anyway - user can manually reindex
+        }
+      });
+    }
   }
 }
 
