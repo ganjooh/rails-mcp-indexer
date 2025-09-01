@@ -42,10 +42,7 @@ An intelligent MCP (Model Context Protocol) server for Ruby on Rails projects th
 ### 1. Install the Package
 
 ```bash
-# Global installation (recommended for Claude Code)
-npm install -g rails-ast-mcp-server
-
-# Or use directly with npx (no installation needed)
+# No installation needed - use directly with npx
 npx rails-ast-mcp-server
 ```
 
@@ -54,25 +51,18 @@ npx rails-ast-mcp-server
 #### Option A: Claude Code (Recommended)
 
 ```bash
-# IMPORTANT: Use the full path to your Rails project
-# The '.' argument doesn't work reliably with Claude Code
-
-# Option 1: Using npx (recommended - no installation needed)
+# Add the server for your Rails project (requires full path)
 claude mcp add rails-ast "npx -y rails-ast-mcp-server" /path/to/your/rails/project
 
-# Example for your project:
-claude mcp add rails-ast "npx -y rails-ast-mcp-server" /Users/you/sources/myapp
+# Example:
+claude mcp add rails-ast "npx -y rails-ast-mcp-server" /Users/you/sources/my-rails-app
 
-# Option 2: If you prefer global installation
-npm install -g rails-ast-mcp-server
-claude mcp add rails-ast rails-ast-mcp-server /path/to/your/rails/project
-
-# Restart Claude Code to activate
+# Restart Claude Code to activate the server
 ```
 
 #### What Your Config Should Look Like
 
-After running the command, your MCP config should have:
+After running the command, Claude Code adds this to your config:
 
 ```json
 {
@@ -82,14 +72,17 @@ After running the command, your MCP config should have:
     "args": [
       "-y",
       "rails-ast-mcp-server",
-      "/Users/you/sources/your-rails-project"  // FULL PATH REQUIRED
+      "/Users/you/sources/your-rails-project"
     ],
     "env": {}
   }
 }
 ```
 
-**Note:** The full path is required. Relative paths like `.` won't work reliably.
+**Important:** 
+- Always use the full absolute path to your Rails project
+- The server connects instantly and indexes in the background
+- Check indexing status with the `get_index_status` tool
 
 #### Option B: Claude Desktop
 
