@@ -342,8 +342,8 @@ When Ruby is detected during installation, the package automatically:
 
 ```bash
 # Clone the repository
-git clone https://github.com/ganjooh/rails-mcp-indexer
-cd rails-mcp-indexer
+git clone https://github.com/ganjooh/rails-ast-mcp-server
+cd rails-ast-mcp-server
 
 # Install dependencies
 npm install
@@ -478,8 +478,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Support
 
-- Issues: [GitHub Issues](https://github.com/ganjooh/rails-mcp-indexer/issues)
-- Discussions: [GitHub Discussions](https://github.com/ganjooh/rails-mcp-indexer/discussions)
+- Issues: [GitHub Issues](https://github.com/ganjooh/rails-ast-mcp-server/issues)
+- Discussions: [GitHub Discussions](https://github.com/ganjooh/rails-ast-mcp-server/discussions)
 
 ## Acknowledgments
 

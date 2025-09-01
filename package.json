@@ -19,13 +19,13 @@
     "validations",
     "indexing"
   ],
-  "homepage": "https://github.com/ganjooh/rails-mcp-indexer",
+  "homepage": "https://github.com/ganjooh/rails-ast-mcp-server",
   "bugs": {
-    "url": "https://github.com/ganjooh/rails-mcp-indexer/issues"
+    "url": "https://github.com/ganjooh/rails-ast-mcp-server/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ganjooh/rails-mcp-indexer.git"
+    "url": "git+https://github.com/ganjooh/rails-ast-mcp-server.git"
   },
   "license": "MIT",
   "author": "Rails MCP Contributors",
