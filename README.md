@@ -1,12 +1,12 @@
-# Rails MCP Indexer
+# Rails AST MCP Server
 
-An intelligent MCP (Model Context Protocol) server for Ruby on Rails projects that provides advanced code indexing, search, and analysis capabilities. Features native Ruby AST parsing with automatic fallback to regex-based parsing when Ruby is not available.
+An intelligent MCP (Model Context Protocol) server for Ruby on Rails projects that provides AST-based code parsing, knowledge graph navigation, and advanced analysis capabilities. Features native Ruby AST parsing with automatic fallback to regex-based parsing when Ruby is not available.
 
-## Why Use Rails MCP Indexer?
+## Why Use Rails AST MCP Server?
 
 ### Advantages Over Vanilla Claude Code / Cursor
 
-| Feature | Vanilla Claude Code / Cursor | Rails MCP Indexer |
+| Feature | Vanilla Claude Code / Cursor | Rails AST MCP Server |
 |---------|------------------------------|-------------------|
 | **Rails DSL Understanding** | Basic text search | Full understanding of associations, validations, callbacks, scopes |
 | **Symbol Search** | File-by-file scanning | Indexed database with instant FTS5 search |
@@ -43,10 +43,10 @@ An intelligent MCP (Model Context Protocol) server for Ruby on Rails projects th
 
 ```bash
 # Global installation (recommended for Claude Code)
-npm install -g @hiteshganjoo/rails-mcp-indexer
+npm install -g rails-ast-mcp-server
 
 # Or use directly with npx (no installation needed)
-npx @hiteshganjoo/rails-mcp-indexer
+npx rails-ast-mcp-server
 ```
 
 ### 2. Setup in Your Rails Project
@@ -58,10 +58,10 @@ npx @hiteshganjoo/rails-mcp-indexer
 cd /path/to/your/rails/project
 
 # Add the MCP server with the current directory as the repo path
-claude mcp add rails-indexer "npx @hiteshganjoo/rails-mcp-indexer" .
+claude mcp add rails-ast "npx rails-ast-mcp-server" .
 
 # Or if installed globally
-claude mcp add rails-indexer mcp-server-rails-indexer .
+claude mcp add rails-ast rails-ast-mcp-server .
 
 # Restart Claude Code to activate
 ```
@@ -73,9 +73,9 @@ Add to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "rails-indexer": {
+    "rails-ast": {
       "command": "npx",
-      "args": ["@hiteshganjoo/rails-mcp-indexer", "/path/to/your/rails/project"]
+      "args": ["rails-ast-mcp-server", "/path/to/your/rails/project"]
     }
   }
 }
@@ -88,9 +88,9 @@ Add to your `.cursor/mcp.json` in your Rails project:
 ```json
 {
   "mcpServers": {
-    "rails-indexer": {
+    "rails-ast": {
       "command": "npx",
-      "args": ["@hiteshganjoo/rails-mcp-indexer"],
+      "args": ["rails-ast-mcp-server"],
       "env": {
         "REPO_PATH": "."
       }
@@ -107,10 +107,10 @@ The server accepts a single argument for the repository path:
 
 ```bash
 # Specify the Rails project path as an argument
-npx @hiteshganjoo/rails-mcp-indexer /path/to/rails/project
+npx rails-ast-mcp-server /path/to/rails/project
 
 # Or use current directory
-npx @hiteshganjoo/rails-mcp-indexer .
+npx rails-ast-mcp-server .
 ```
 
 ### Environment Variables
@@ -126,7 +126,7 @@ You can also configure the server using environment variables:
 
 ```bash
 # Example with environment variables
-REPO_PATH=/path/to/rails/app DB_PATH=/tmp/index.db npx @hiteshganjoo/rails-mcp-indexer
+REPO_PATH=/path/to/rails/app DB_PATH=/tmp/index.db npx rails-ast-mcp-server
 
 # Disable auto-indexing
 AUTO_INDEX=false npx @hiteshganjoo/rails-mcp-indexer

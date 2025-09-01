@@ -1,21 +1,23 @@
 {
-  "name": "@hiteshganjoo/rails-mcp-indexer",
-  "version": "2.3.1",
-  "description": "Rails MCP server with database schema awareness - parses both Ruby AST and db/schema.rb for complete Rails intelligence",
+  "name": "rails-ast-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Rails code AST parsing, indexing and knowledge graph navigation - complete Rails intelligence with database schema awareness",
   "keywords": [
     "mcp",
     "model-context-protocol",
     "rails",
     "ruby",
-    "indexing",
     "ast",
+    "abstract-syntax-tree",
+    "knowledge-graph",
     "code-analysis",
     "claude",
     "ai-tools",
     "database-schema",
     "activerecord",
     "associations",
-    "validations"
+    "validations",
+    "indexing"
   ],
   "homepage": "https://github.com/ganjooh/rails-mcp-indexer",
   "bugs": {
@@ -29,7 +31,7 @@
   "author": "Rails MCP Contributors",
   "type": "module",
   "bin": {
-    "mcp-server-rails-indexer": "dist/index.js"
+    "rails-ast-mcp-server": "dist/index.js"
   },
   "files": [
     "dist/**/*",

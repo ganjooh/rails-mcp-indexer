@@ -103,16 +103,20 @@ export class RailsMcpServer {
 
   constructor() {
     // Get configuration from environment variables or command line args
-    this.repoPath = process.argv[2] || process.env.REPO_PATH || process.cwd();
+    // If argument is provided, resolve it relative to current working directory
+    const pathArg = process.argv[2] || process.env.REPO_PATH || '.';
     
-    // Resolve to absolute path
-    this.repoPath = path.resolve(this.repoPath);
+    // Always resolve relative to CWD (where the command is run from)
+    // This makes '.' work correctly
+    this.repoPath = path.resolve(process.cwd(), pathArg);
     
     // Validate that the path exists and looks like a Rails project
     if (!fs.existsSync(this.repoPath)) {
-      console.error(`[Rails MCP Indexer] Error: Path does not exist: ${this.repoPath}`);
-      console.error(`[Rails MCP Indexer] Usage: mcp-server-rails-indexer /path/to/rails/project`);
-      console.error(`[Rails MCP Indexer] Or set REPO_PATH environment variable`);
+      console.error(`[Rails AST MCP] Error: Path does not exist: ${this.repoPath}`);
+      console.error(`[Rails AST MCP] Usage: rails-ast-mcp-server [path]`);
+      console.error(`[Rails AST MCP] Examples:`);
+      console.error(`[Rails AST MCP]   rails-ast-mcp-server .`);
+      console.error(`[Rails AST MCP]   rails-ast-mcp-server /path/to/rails/project`);
       // Create a minimal server that responds to protocol but explains the error
       this.repoPath = process.cwd();
     } else {
@@ -120,8 +124,10 @@ export class RailsMcpServer {
       const hasGemfile = fs.existsSync(path.join(this.repoPath, 'Gemfile'));
       const hasApp = fs.existsSync(path.join(this.repoPath, 'app'));
       if (!hasGemfile && !hasApp) {
-        console.error(`[Rails MCP Indexer] Warning: ${this.repoPath} doesn't look like a Rails project`);
-        console.error(`[Rails MCP Indexer] Missing Gemfile or app/ directory`);
+        console.error(`[Rails AST MCP] Warning: ${this.repoPath} doesn't look like a Rails project`);
+        console.error(`[Rails AST MCP] Missing Gemfile or app/ directory`);
+      } else {
+        console.error(`[Rails AST MCP] Indexing Rails project at: ${this.repoPath}`);
       }
     }
     
@@ -146,8 +152,8 @@ export class RailsMcpServer {
     // Initialize MCP server
     this.server = new Server(
       {
-        name: 'rails-mcp-indexer',
-        version: '2.3.0'
+        name: 'rails-ast-mcp-server',
+        version: '1.0.0'
       },
       {
         capabilities: {
@@ -661,23 +667,23 @@ export class RailsMcpServer {
     if (this.autoIndexOnStartup) {
       try {
         if (this.db.needsReindex(this.repoPath)) {
-          console.error(`[Rails MCP Indexer] Auto-indexing ${this.repoPath}...`);
+          console.error(`[Rails AST MCP] Auto-indexing ${this.repoPath}...`);
           const result = await this.indexer.reindex([], false);
-          console.error(`[Rails MCP Indexer] Indexed ${result.filesIndexed} files in ${result.duration}`);
+          console.error(`[Rails AST MCP] Indexed ${result.filesIndexed} files in ${result.duration}`);
         } else {
           const metadata = this.db.getAllMetadata();
           const lastIndexed = metadata.last_indexed ? new Date(metadata.last_indexed).toLocaleString() : 'never';
-          console.error(`[Rails MCP Indexer] Using existing index (last updated: ${lastIndexed})`);
+          console.error(`[Rails AST MCP] Using existing index (last updated: ${lastIndexed})`);
         }
       } catch (error) {
-        console.error('[Rails MCP Indexer] Auto-index failed:', error);
+        console.error('[Rails AST MCP] Auto-index failed:', error);
         // Continue anyway - user can manually reindex
       }
     }
 
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error(`[Rails MCP Indexer] Server started for ${this.repoPath}`);
+    console.error(`[Rails AST MCP] Server started for ${this.repoPath}`);
   }
 }
 
