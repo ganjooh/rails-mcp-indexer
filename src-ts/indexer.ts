@@ -12,6 +12,7 @@ import { RubyParser, RubyParseResult } from './ruby-parser.js';
 import { NativeRubyParser, NativeParseResult } from './ruby-parser-native.js';
 import { SchemaParser } from './schema-parser.js';
 import { RailsAssociationMapper } from './rails-association-mapper.js';
+import { GraphBuilder } from './graph-builder.js';
 
 export interface SearchResult {
   file_path: string;
@@ -39,6 +40,7 @@ export class CodeIndexer {
   private railsPatterns: Map<string, RegExp>;
   private schemaParser: SchemaParser;
   private associationMapper: RailsAssociationMapper;
+  private graphBuilder: GraphBuilder;
 
   constructor(repoPath: string, db: IndexDatabase, rubyParserPath: string) {
     this.repoPath = path.resolve(repoPath);
@@ -51,6 +53,9 @@ export class CodeIndexer {
     // Initialize schema parser and association mapper
     this.schemaParser = new SchemaParser();
     this.associationMapper = new RailsAssociationMapper();
+    
+    // Initialize graph builder
+    this.graphBuilder = new GraphBuilder(db);
     
     // Prefer native parser if available
     this.useNativeParser = this.nativeParser.isAvailable();
@@ -230,6 +235,13 @@ export class CodeIndexer {
         });
       }
     }
+
+    // Build knowledge graph
+    const enrichedResult = {
+      ...parseResult,
+      file_type: fileType
+    };
+    await this.graphBuilder.buildFromAST(relativePath, enrichedResult, fileId);
   }
 
   private detectFileType(filePath: string): string {
@@ -281,6 +293,9 @@ export class CodeIndexer {
     if (schemaData.version) {
       this.db.setMetadata('schema_version', schemaData.version);
     }
+    
+    // Build graph from schema
+    await this.graphBuilder.buildFromSchema(schemaData.tables);
     
     console.log(`[CodeIndexer] Indexed ${schemaData.tables.length} tables from schema.rb`);
   }

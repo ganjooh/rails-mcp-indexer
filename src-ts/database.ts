@@ -5,6 +5,7 @@
 import Database from 'better-sqlite3';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { SQLiteGraphStore, GraphStore } from './graph-store.js';
 
 export interface FileRecord {
   id?: number;
@@ -40,10 +41,12 @@ export interface CallRecord {
 
 export class IndexDatabase {
   private db: Database.Database;
+  public graph: GraphStore;
 
   constructor(dbPath: string) {
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
+    this.graph = new SQLiteGraphStore(this.db);
     this.initSchema();
   }
 
@@ -192,6 +195,40 @@ export class IndexDatabase {
       CREATE INDEX IF NOT EXISTS idx_schema_indexes_table_id ON schema_indexes(table_id);
       CREATE INDEX IF NOT EXISTS idx_schema_fk_from ON schema_foreign_keys(from_table);
       CREATE INDEX IF NOT EXISTS idx_schema_fk_to ON schema_foreign_keys(to_table);
+    `);
+
+    // Knowledge Graph tables
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS kg_nodes (
+        id         INTEGER PRIMARY KEY,
+        kind       TEXT NOT NULL,        -- class|module|method|file|table|column|index
+        key        TEXT NOT NULL,        -- natural id: "User", "User#full_name", "users", "users.email"
+        label      TEXT,
+        source     TEXT NOT NULL,        -- ast|db|manual
+        file_path  TEXT,
+        start_line INTEGER,
+        end_line   INTEGER,
+        meta_json  TEXT DEFAULT '{}'     -- props blob
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_kg_nodes_kind_key ON kg_nodes(kind, key);
+      CREATE INDEX IF NOT EXISTS idx_kg_nodes_source ON kg_nodes(source);
+    `);
+
+    // Knowledge Graph edges
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS kg_edges (
+        id        INTEGER PRIMARY KEY,
+        kind      TEXT NOT NULL,         -- defines|inherits|includes|extends|belongs_to|has_many|has_one|has_column|references|backs
+        src_id    INTEGER NOT NULL REFERENCES kg_nodes(id) ON DELETE CASCADE,
+        dst_id    INTEGER NOT NULL REFERENCES kg_nodes(id) ON DELETE CASCADE,
+        src_loc   TEXT,                  -- "path:line" etc.
+        dst_loc   TEXT,
+        meta_json TEXT DEFAULT '{}'
+      );
+      CREATE INDEX IF NOT EXISTS idx_kg_edges_src ON kg_edges(src_id);
+      CREATE INDEX IF NOT EXISTS idx_kg_edges_dst ON kg_edges(dst_id);
+      CREATE INDEX IF NOT EXISTS idx_kg_edges_kind ON kg_edges(kind);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_kg_edges_unique ON kg_edges(kind, src_id, dst_id);
     `);
   }
 

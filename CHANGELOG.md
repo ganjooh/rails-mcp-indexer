@@ -5,6 +5,32 @@ All notable changes to Rails MCP Indexer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2025-09-01
+
+### Added
+- **Knowledge Graph**: Complete graph-based code navigation system
+  - SQLite-backed graph store with nodes and edges tables
+  - Automatic graph population from AST and database schema
+  - Support for code relationships: inheritance, module inclusion, method definitions
+  - Database relationships: tables, columns, foreign keys, indexes
+  - Rails-specific edges: belongs_to, has_many, has_one, backs (model↔table)
+- **New Graph Navigation Tools**:
+  - `graph_find_nodes` - Search nodes by kind, key, or label
+  - `graph_neighbors` - Traverse connected nodes with edge filtering
+  - `graph_explain` - Get detailed node information and suggested actions
+  - `get_definition` - Retrieve code snippets with context
+  - `list_rails` - List Rails associations, validations, and callbacks
+- **Graph Builder**: Intelligent graph construction from multiple sources
+  - Extracts relationships from Ruby AST
+  - Maps database schema to graph nodes
+  - Infers model-to-table mappings using Rails conventions
+  - Creates bidirectional relationship edges
+
+### Enhanced
+- Indexer now populates knowledge graph during AST parsing
+- Database schema parsing feeds into graph structure
+- Improved relationship tracking between code and database
+
 ## [2.2.0] - 2025-08-31
 
 ### Added

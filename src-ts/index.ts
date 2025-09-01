@@ -61,6 +61,35 @@ const DbTableSchema = z.object({
   table_name: z.string().describe('Name of the table')
 });
 
+// Graph tool schemas
+const GraphFindNodesSchema = z.object({
+  kind: z.string().optional().describe('Node kind filter (class, module, method, table, column)'),
+  q: z.string().optional().describe('Search query for node key or label'),
+  limit: z.number().default(50).describe('Maximum results')
+});
+
+const GraphNeighborsSchema = z.object({
+  node_id: z.number().describe('Node ID to find neighbors for'),
+  edge_kinds: z.array(z.string()).optional().describe('Filter by edge kinds'),
+  direction: z.enum(['out', 'in', 'both']).default('both').describe('Edge direction'),
+  depth: z.number().default(1).describe('Traversal depth (max 3)')
+});
+
+const GraphExplainSchema = z.object({
+  node_id: z.number().describe('Node ID to explain')
+});
+
+const GetDefinitionSchema = z.object({
+  symbol_id: z.number().describe('Symbol ID from graph'),
+  context_before: z.number().default(2).describe('Lines before'),
+  context_after: z.number().default(2).describe('Lines after')
+});
+
+const ListRailsSchema = z.object({
+  class_name: z.string().describe('Rails model class name'),
+  kind: z.enum(['associations', 'validations', 'callbacks', 'all']).default('all')
+});
+
 // Get __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -246,6 +275,83 @@ export class RailsMcpServer {
               },
               required: ['table_name']
             }
+          },
+          // Graph navigation tools
+          {
+            name: 'graph_find_nodes',
+            description: 'Find nodes in the knowledge graph by kind, key, or label',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                kind: { type: 'string', description: 'Node kind filter (class, module, method, table, column)' },
+                q: { type: 'string', description: 'Search query for node key or label' },
+                limit: { type: 'number', default: 50, description: 'Maximum results' }
+              }
+            }
+          },
+          {
+            name: 'graph_neighbors',
+            description: 'Get connected nodes and edges for a given node',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                node_id: { type: 'number', description: 'Node ID to find neighbors for' },
+                edge_kinds: { 
+                  type: 'array', 
+                  items: { type: 'string' },
+                  description: 'Filter by edge kinds (defines, inherits, includes, belongs_to, has_many, backs, etc.)' 
+                },
+                direction: { 
+                  type: 'string', 
+                  enum: ['out', 'in', 'both'], 
+                  default: 'both',
+                  description: 'Edge direction' 
+                },
+                depth: { type: 'number', default: 1, description: 'Traversal depth (max 3)' }
+              },
+              required: ['node_id']
+            }
+          },
+          {
+            name: 'graph_explain',
+            description: 'Get detailed explanation of a node and suggest next actions',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                node_id: { type: 'number', description: 'Node ID to explain' }
+              },
+              required: ['node_id']
+            }
+          },
+          {
+            name: 'get_definition',
+            description: 'Get code definition with context for a symbol',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                symbol_id: { type: 'number', description: 'Symbol ID from graph' },
+                context_before: { type: 'number', default: 2, description: 'Lines before' },
+                context_after: { type: 'number', default: 2, description: 'Lines after' }
+              },
+              required: ['symbol_id']
+            }
+          },
+          {
+            name: 'list_rails',
+            description: 'List Rails associations, validations, or callbacks for a class',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                class_name: { type: 'string', description: 'Rails model class name' },
+                kind: { 
+                  type: 'string', 
+                  enum: ['associations', 'validations', 'callbacks', 'all'],
+                  default: 'all',
+                  description: 'Type of Rails metadata to list' 
+                }
+              },
+              required: ['class_name']
+            }
           }
         ] as Tool[]
       };
@@ -379,6 +485,138 @@ export class RailsMcpServer {
               content: [{
                 type: 'text',
                 text: JSON.stringify(suggestions, null, 2)
+              } as TextContent]
+            };
+          }
+
+          // Graph navigation tools
+          case 'graph_find_nodes': {
+            const params = GraphFindNodesSchema.parse(args);
+            const nodes = this.db.graph.findNodes({
+              kind: params.kind,
+              q: params.q,
+              limit: params.limit
+            });
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify(nodes, null, 2)
+              } as TextContent]
+            };
+          }
+
+          case 'graph_neighbors': {
+            const params = GraphNeighborsSchema.parse(args);
+            const result = this.db.graph.neighbors(
+              params.node_id,
+              params.edge_kinds,
+              params.direction,
+              params.depth
+            );
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify(result, null, 2)
+              } as TextContent]
+            };
+          }
+
+          case 'graph_explain': {
+            const params = GraphExplainSchema.parse(args);
+            const node = this.db.graph.getNode(params.node_id);
+            if (!node) {
+              throw new McpError(ErrorCode.InvalidParams, `Node ${params.node_id} not found`);
+            }
+            
+            // Get some context about the node
+            const neighbors = this.db.graph.neighbors(params.node_id, undefined, 'both', 1);
+            
+            const explanation = {
+              node,
+              summary: `${node.kind} "${node.label || node.key}" ${node.source === 'ast' ? `from ${node.file_path}` : 'from database schema'}`,
+              location: node.file_path ? `${node.file_path}:${node.start_line}-${node.end_line}` : null,
+              connections: {
+                incoming: neighbors.edges.filter((e: any) => e.dst_id === params.node_id).length,
+                outgoing: neighbors.edges.filter((e: any) => e.src_id === params.node_id).length
+              },
+              suggested_next: [
+                'graph_neighbors to explore connections',
+                node.file_path ? 'get_definition to see code' : null,
+                node.kind === 'class' ? 'list_rails to see Rails metadata' : null
+              ].filter(Boolean)
+            };
+            
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify(explanation, null, 2)
+              } as TextContent]
+            };
+          }
+
+          case 'get_definition': {
+            const params = GetDefinitionSchema.parse(args);
+            const node = this.db.graph.getNode(params.symbol_id);
+            if (!node || !node.file_path) {
+              throw new McpError(ErrorCode.InvalidParams, `No code definition for node ${params.symbol_id}`);
+            }
+            
+            const snippet = await this.indexer.getSnippet(
+              node.file_path,
+              Math.max(1, (node.start_line || 1) - params.context_before),
+              (node.end_line || node.start_line || 1) + params.context_after
+            );
+            
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify(snippet, null, 2)
+              } as TextContent]
+            };
+          }
+
+          case 'list_rails': {
+            const params = ListRailsSchema.parse(args);
+            // Find the class node
+            const nodes = this.db.graph.findNodes({
+              kind: 'class',
+              q: params.class_name,
+              limit: 1
+            });
+            
+            if (nodes.length === 0) {
+              throw new McpError(ErrorCode.InvalidParams, `Class ${params.class_name} not found`);
+            }
+            
+            const classNode = nodes[0];
+            const neighbors = this.db.graph.neighbors(classNode.id!, ['belongs_to', 'has_many', 'has_one'], 'out', 1);
+            
+            const result: any = {
+              class: params.class_name,
+              file: classNode.file_path
+            };
+            
+            if (params.kind === 'associations' || params.kind === 'all') {
+              result.associations = neighbors.edges.map((e: any) => ({
+                type: e.kind,
+                target: neighbors.nodes.find((n: any) => n.id === e.dst_id)?.label,
+                meta: e.meta_json
+              }));
+            }
+            
+            // For now, validations and callbacks would need to be extracted from AST metadata
+            if (params.kind === 'validations' || params.kind === 'all') {
+              result.validations = classNode.meta_json?.validations || [];
+            }
+            
+            if (params.kind === 'callbacks' || params.kind === 'all') {
+              result.callbacks = classNode.meta_json?.callbacks || [];
+            }
+            
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify(result, null, 2)
               } as TextContent]
             };
           }
